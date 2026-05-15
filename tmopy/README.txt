@@ -12,7 +12,7 @@ validation.  Every function reproduces the command‑line pipeline exactly.
 ================================================================================
 
 # Clone the repository
-git clone https://github.com/phabel-LD/tmo.git
+git clone https://github.com/phabel-LD/TemporalMultiOmics.git
 cd tmo
 conda env create -f environment.yaml
 conda activate tmo_env
