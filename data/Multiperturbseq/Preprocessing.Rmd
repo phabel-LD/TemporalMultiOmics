@@ -1,0 +1,126 @@
+---
+title: "Multiperturbseq"
+author: "Phabel López"
+date: "2026-05-02"
+output: html_document
+---
+
+```{r echo=TRUE}
+library(Seurat)
+library(anndata)
+library(Matrix)
+library(SummarizedExperiment)
+```
+
+```{r echo=TRUE}
+# Read the RDS file (this should now work)
+obj <- readRDS("GSM8528725_MPS.rds")
+```
+
+```{r echo=TRUE}
+# ---- Check object type ----
+cat("Object class:", class(obj), "\n")
+# Check what assays are available
+print("Assay names:")
+print(assayNames(obj))
+```
+
+```{r echo=TRUE}
+# Load required libraries
+library(SingleCellExperiment)
+library(SummarizedExperiment)
+
+# Read the object
+obj <- readRDS("GSM8528725_MPS.rds")
+
+# Print a concise summary of the object
+print(obj)
+
+# Check which assays are present (should be "counts")
+print(assayNames(obj))
+
+# Check for alternative Experiments (often used for multimodal data)
+print(altExpNames(obj))
+
+# Check reduced dimensions (e.g., PCA, UMAP)
+print(reducedDimNames(obj))
+
+# Check rowData and colData names
+print(names(rowData(obj)))
+print(names(colData(obj)))
+
+# Check if there are additional metadata elements
+print(names(metadata(obj)))
+
+# List all available slots (advanced)
+print(slotNames(obj))
+```
+
+```{r echo=TRUE}
+# RNA counts (main assay)
+rna_counts <- assay(obj, "counts")   # features x cells
+
+# ATAC counts (alternative experiment)
+atac_obj <- altExp(obj, "ATAC")
+atac_counts <- assay(atac_obj, "counts")  # features x cells
+
+# Metadata (colData) includes guide_id and guide_gene
+metadata <- as.data.frame(colData(obj))
+
+# Transpose to cells x features
+rna_counts <- t(rna_counts)
+atac_counts <- t(atac_counts)
+
+# Save as RDS
+saveRDS(rna_counts, "rna_counts.rds")
+saveRDS(atac_counts, "atac_counts.rds")
+saveRDS(metadata, "metadata.rds")
+```
+
+```{r echo=TRUE}
+library(SingleCellExperiment)
+library(Matrix)
+
+# Load the RDS object
+obj <- readRDS("GSM8528725_MPS.rds")
+
+# RNA: original is genes x cells; transpose to cells x genes
+rna_counts_orig <- assay(obj, "counts")
+rna_counts <- t(rna_counts_orig)
+gene_names <- rownames(rna_counts_orig)
+
+# ATAC: from altExp
+atac_obj <- altExp(obj, "ATAC")
+atac_counts_orig <- assay(atac_obj, "counts")
+atac_counts <- t(atac_counts_orig)
+peak_names <- rownames(atac_counts_orig)
+
+# Metadata (colData)
+metadata <- as.data.frame(colData(obj))
+
+# Install anndata if not already
+if (!require(anndata)) {
+  install.packages("remotes")
+  remotes::install_github("theislab/anndata")
+  library(anndata)
+}
+
+# Create AnnData object
+adata <- AnnData(
+  X = rna_counts,
+  obs = metadata,
+  var = data.frame(gene = gene_names),
+  obsm = list(ATAC = atac_counts)
+)
+# Store peak names in uns
+adata$uns[['peak_names']] <- peak_names
+
+# Save to H5AD
+adata$write_h5ad("multiperturb_seq.h5ad")
+
+cat("Saved multiperturb_seq.h5ad\n")
+```
+
+
+
+

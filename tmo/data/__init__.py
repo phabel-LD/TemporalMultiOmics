@@ -1,0 +1,1 @@
+# data subpackage – public imports removed; no longer needed

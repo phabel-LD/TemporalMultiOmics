@@ -1,0 +1,68 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tmo"
+version = "1.0.0"
+description = "Temporal Multi-Omics (TMO) foundation model for single-cell ATAC+RNA data"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Phabel A. Lopez-Delgado", email = "phabel@lcg.unam.mx"}
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+dependencies = [
+    "torch>=2.0.0",
+    "scanpy>=1.9.0",
+    "anndata>=0.9.0",
+    "scikit-learn>=1.2.0",
+    "scipy>=1.10.0",
+    "matplotlib>=3.5.0",
+    "seaborn>=0.12.0",
+    "pandas>=1.5.0",
+    "numpy>=1.23.0",
+    "tqdm>=4.65.0",
+    "muon>=0.1.0",
+    "gseapy>=1.0.0",
+]
+requires-python = ">=3.9"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "mypy>=1.0.0",
+    "sphinx>=5.0.0",
+    "sphinx-rtd-theme>=1.0.0",
+    "wandb>=0.15.0",
+]
+plotting = [
+    "seaborn>=0.12.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["tmo", "tmo.*", "tmopy", "tmopy.*"]
+
+[project.urls]
+Homepage = "https://github.com/phabel-LD/tmo"
+Repository = "https://github.com/phabel-LD/tmo"
+Issues = "https://github.com/phabel-LD/tmo/issues"
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.black]
+line_length = 100
+target_version = ['py39']
+
+[tool.mypy]
+ignore_missing_imports = true

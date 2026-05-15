@@ -1,0 +1,5 @@
+# 1. Train asymmetric model on NTC control cells only
+python 3_train_tmo_asymmetric.py --data_path "../data/Multiperturbseq/multiperturb_ntc_only.h5ad" --output_dir "../results/tmo_results_multiperturbseq_smarce1" --epochs 5 --val_interval 5 --lambda_lag 0.1 --use_windowed_sparsity
+
+# 2. Run perturbation validation using the trained model and pre‑fitted pickles
+python 10_validate_multigene.py --data_path "../data/Multiperturbseq/multiperturb_smarce1_ready.h5ad" --model_path "../results/tmo_results_multiperturbseq_smarce1/tmo_asymmetric_best.pt" --control_label NTC --perturb_label SMARCE1 --target_genes_file "../data/Multiperturbseq/target_genes.txt" --output_dir "../results/tmo_results_multiperturbseq_smarce1" --pca_path "../results/tmo_results_multiperturbseq_smarce1/pca.pkl" --tfidf_path "../results/tmo_results_multiperturbseq_smarce1/tfidf.pkl" --lsi_path "../results/tmo_results_multiperturbseq_smarce1/lsi.pkl"

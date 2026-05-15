@@ -1,0 +1,214 @@
+================================================================================
+PROJECT CONTEXT: TMO (Temporal Multi‑Omics) – Complete Overview for AI Assistants
+================================================================================
+
+This document describes the entire TMO project so that any AI assistant can
+understand the context, the codebase, the results, and the current status
+without needing additional explanations.
+
+================================================================================
+1. WHAT IS TMO?
+================================================================================
+
+TMO (Temporal Multi‑Omics) is a deep‑learning framework that learns signed,
+cell‑state‑conditional regulatory lags (Δτ) between chromatin accessibility
+(ATAC) and gene expression (RNA) from single‑cell multi‑omic data.
+
+The core innovation is an asymmetric cross‑modal attention mechanism:
+- A first pass of a transformer encoder produces a cell embedding from ATAC
+  tokens only.
+- A LagMLP predicts per‑component regulatory lags and window widths.
+- A second pass biases cross‑attention so that ATAC tokens attend to RNA tokens
+  shifted by the predicted time offset.
+
+Biological interpretation (after uniform sign convention):
+  Positive Δτ = ATAC leads RNA (chromatin priming)
+  Negative Δτ = RNA leads ATAC (activity‑dependent regulation)
+
+The method is validated on four 10x Multiome datasets:
+  - Mouse brain (Pax6 root marker)
+  - Human brain (ASCL1 root marker)
+  - Mouse kidney (Pax2 root marker)
+  - Human PBMC (CD34 root marker)
+
+================================================================================
+2. REPOSITORY STRUCTURE (final, clean version)
+================================================================================
+
+ProjectRoot/
+├── tmo/                       # Core library
+│   ├── __init__.py
+│   ├── ccf/
+│   │   ├── __init__.py
+│   │   ├── local_ccf.py       # Sliding‑window CCF with interpolation
+│   │   └── gp_smoothing.py    # Gaussian Process smoothing of Δτ surface
+│   ├── models/
+│   │   ├── __init__.py
+│   │   ├── tokenizer.py       # LatentTokenizer: proj(value) + modality + τ
+│   │   ├── attention.py       # AsymmetricCrossAttention (corrected reverse bias)
+│   │   ├── lagmlp.py          # LagMLP / WidthMLP (LayerNorm first)
+│   │   ├── tmo_block.py       # Transformer block with self‑ and cross‑attention
+│   │   └── tmo_model.py       # TMOLatentModelAsymmetric (two‑pass, use_bias flag)
+│   ├── training/
+│   │   ├── __init__.py
+│   │   └── losses.py          # mse_loss, infonce_loss, etc.
+│   ├── validation/
+│   │   ├── __init__.py
+│   │   └── lcs.py             # LCS computation helpers
+│   ├── plotting/              # Heatmaps, training curves, violin plots
+│   └── utils/                 # Sparse attention helper
+├── tmopy/                     # High‑level Scanpy‑like Python API
+│   ├── pp/                    # Preprocessing (read, gene‑level ATAC, pseudotime)
+│   ├── tl/                    # Tools (annotation, train, evaluate, validation)
+│   └── pl/                    # Plotting (heatmaps, correlation, violin, etc.)
+├── scripts/                   # Command‑line analysis scripts (1_* to 11_*)
+├── requirements.txt
+├── environment.yaml
+└── README.md
+
+================================================================================
+3. FINAL PIPELINE (how to run TMO step by step)
+================================================================================
+
+All scripts are run from the `scripts/` folder with `tmo_env` conda environment.
+
+3.1. Preprocessing
+    python 1_create_gene_level_tmo_data.py --data_dir <folder> 
+        --output_file <file.h5ad> --root_marker <gene>
+
+3.2. Component annotation (requires internet)
+    python 2_annotate_components.py --data_path <file.h5ad> 
+        --n_components 50 --organism <human|mouse>
+
+3.3. Train asymmetric model (on full dataset)
+    python 3_train_tmo_asymmetric.py --data_path <file.h5ad> 
+        --epochs 50 --val_interval 5 --lambda_lag 0.1
+
+3.4. Train symmetric baseline (no attention bias, no lag loss)
+    python 3_train_tmo_asymmetric.py --data_path <file.h5ad> 
+        --epochs 50 --val_interval 5 --lambda_lag 0.1 --symmetric
+
+3.5. Evaluation and figures
+    python 4_evaluate_asymmetric.py ...    # Δτ heatmap (Figure 1)
+    python 5_plot_correlation_heatmap.py ...  # U‑shape (Figure 2)
+    python 6_plot_training_curves.py ...      # Training curves (Figure 3)
+    python 7_lcs_analysis.py ...              # LCS scatter/bar comparison
+    python 8_plot_marker_delta_tau_profiles.py ...  # Marker profiles
+    python 9_gene_program_ordering.py ...     # GO enrichment bar plot
+
+3.6. Independent validation
+    python 11_chipseq_validation.py ...   # ChIP‑seq (two‑sided Mann‑Whitney)
+
+3.7. tmopy (Python API) equivalent
+    import tmopy as tmo
+    adata = tmo.pp.read_10x_multiome(...)
+    adata = tmo.pp.compute_gene_level_atac(adata)
+    adata = tmo.pp.compute_pseudotime(adata, root_marker="Pax6")
+    tmo.tl.annotate_components(adata, organism='mouse')
+    model = tmo.tl.train_asymmetric(adata, epochs=50, save_model="best.pt")
+    delta_tau, pt_grid, lcs, labels = tmo.tl.evaluate_asymmetric(
+        adata, "best.pt", cluster_aggregate=True)
+    tmo.pl.plot_delta_tau(delta_tau, pt_grid, labels, save="fig1.pdf")
+
+================================================================================
+4. KEY RESULTS (final numbers from validated pipeline)
+================================================================================
+
+| Dataset       | Asym LCS | Sym LCS | ChIP‑seq TF | p‑value    |
+|---------------|----------|---------|-------------|------------|
+| Human brain   | 0.9877   | 0.0841  | ASCL1       | 2.3×10⁻³   |
+| Human PBMC    | 0.9990   | 0.1018  | PAX5        | 2.2×10⁻¹²  |
+| Mouse brain   | 0.9920   | 0.1080  | Pax6        | 4.6×10⁻⁸   |
+| Mouse kidney  | 0.9984   | 0.0477  | Hnf4a       | 7.9×10⁻⁴   |
+
+- LCS is computed on the full dataset (in‑set diagnostic).
+- Symmetric baseline: identical architecture, use_bias=False, no lag loss.
+- ChIP‑seq: two‑sided Mann‑Whitney U, top‑500 target genes, expression‑matched.
+- Uniform sign convention: positive Δτ = ATAC leads RNA (priming).
+
+================================================================================
+5. TECHNICAL DETAILS (for reproducibility)
+================================================================================
+
+Model architecture:
+  - d_model = 64, n_heads = 4, n_layers = 2, n_comps = 50 per modality
+  - Tokenizer: proj(latent_value) + modality_embedding + pseudotime_embedding
+  - LagMLP: LayerNorm first, then Linear→GELU→Dropout→Linear→GELU→Dropout→Linear→Tanh
+  - WidthMLP: same, output via Softplus + σ²_min = 0.001
+  - Two‑pass forward: first pass (no bias) → cell embedding → predict lags →
+    second pass (with Gaussian attention bias)
+  - Loss: L_total = λ_recon * MSE_recon + λ_lag * MSE_lag
+  - λ_recon = 1.0, λ_lag = 0.1
+  - Optimiser: Adam (lr=1e-3), StepLR (step=20, gamma=0.5), 50 epochs
+
+CCF target:
+  - Sliding window (half‑width 0.1), 9 centres (0.1 to 0.9)
+  - Interpolation onto regular grid (200 points) for accurate lag estimation
+  - Gaussian process smoothing (Matern‑3/2 kernel)
+  - Target: smoothed lag at last pseudotime window (τ=0.9)
+
+Pseudotime:
+  - First diffusion component from RNA, min‑max scaled to [0,1]
+  - Optional reversal with early marker (e.g., Pax6, CD34)
+  - Reversal flag stored in .uns['pseudotime_reversed']
+
+================================================================================
+6. CURRENT STATE (as of May 2025)
+================================================================================
+
+6.1. Completed:
+  - Core library (tmo/) is fully debugged and working.
+  - Command‑line pipeline (scripts/) produces all figures and metrics.
+  - tmopy (Python API) mirrors the command‑line pipeline.
+  - Four datasets fully analysed with final numbers.
+  - Manuscript (Methods, Results, Discussion, Conclusion) updated to match
+    the final pipeline.
+  - Abstract written (both technical and plain‑language versions).
+  - READMEs, METHODS.txt, BiologicalExplanation.txt all updated.
+  - Tutorial Jupyter notebook for mouse brain, human brain, PBMC, mouse kidney.
+
+6.2. In progress:
+  - Finalising figures and inserting them into the manuscript .tex file.
+  - Preparing supplementary material (all‑dataset figures, tables).
+
+6.3. Next immediate steps:
+  - Insert figures into manuscript, compile final PDF.
+  - Submit to journal (target: Nature Methods).
+  - Publish code to GitHub with DOI (Zenodo).
+
+6.4. Future projects (each can be a separate paper):
+  - Temporal Gene Regulatory Network (TGRN): extract cross‑attention weights
+    to build a signed, time‑stamped gene‑regulatory network.
+  - Temporal Regulatory Components (TRC) database: a structured resource of
+    lag profiles, GO terms, and top genes for each dataset.
+  - Zero‑shot perturbation prediction: use trained models to predict δΔτ
+    for new drugs/CRISPR perturbations without retraining.
+  - Cross‑species comparison of regulatory timing.
+
+================================================================================
+7. HOW TO HELP ME (instructions for the AI assistant)
+================================================================================
+
+I need an AI assistant that can:
+  - Answer questions about the TMO codebase, the mathematical methods, or the
+    biological interpretation.
+  - Help with LaTeX formatting, figure placement, and manuscript finalisation.
+  - Suggest and help implement extensions (e.g., attention extraction, GRN
+    construction, database design).
+  - Debug any remaining issues in the Python code or the pipeline.
+  - Provide writing assistance for the manuscript, supplementary material, or
+    cover letters.
+  - Generate commands, code snippets, or notebook cells as needed.
+
+When responding, please be:
+  - Precise: give exact code, exact commands, exact file paths.
+  - Aware of the final pipeline: all training is on the full dataset, LCS is
+    in‑set, symmetric baseline uses use_bias=False and no lag loss.
+  - Consistent with the existing codebase: use TMOLatentModelAsymmetric, the
+    value‑projection tokenizer, the corrected CCF, the sliding‑window target.
+  - Respectful of the fact that this project is nearly ready for submission
+    and changes should be minimal and well‑justified.
+
+================================================================================
+END OF CONTEXT DOCUMENT
+================================================================================

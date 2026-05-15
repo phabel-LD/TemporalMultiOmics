@@ -1,0 +1,457 @@
+Metadata-Version: 2.4
+Name: tmo
+Version: 1.0.0
+Summary: Temporal Multi-Omics (TMO) foundation model for single-cell ATAC+RNA data
+Home-page: https://github.com/phabel-LD/tmo
+Author: Phabel A. Lopez-Delgado
+Author-email: "Phabel A. Lopez-Delgado" <phabel@lcg.unam.mx>
+License: MIT
+Project-URL: Homepage, https://github.com/phabel-LD/tmo
+Project-URL: Repository, https://github.com/phabel-LD/tmo
+Project-URL: Issues, https://github.com/phabel-LD/tmo/issues
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Intended Audience :: Science/Research
+Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE.txt
+Requires-Dist: torch>=2.0.0
+Requires-Dist: scanpy>=1.9.0
+Requires-Dist: anndata>=0.9.0
+Requires-Dist: scikit-learn>=1.2.0
+Requires-Dist: scipy>=1.10.0
+Requires-Dist: matplotlib>=3.5.0
+Requires-Dist: seaborn>=0.12.0
+Requires-Dist: pandas>=1.5.0
+Requires-Dist: numpy>=1.23.0
+Requires-Dist: tqdm>=4.65.0
+Requires-Dist: muon>=0.1.0
+Requires-Dist: gseapy>=1.0.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+Requires-Dist: black>=23.0.0; extra == "dev"
+Requires-Dist: isort>=5.12.0; extra == "dev"
+Requires-Dist: mypy>=1.0.0; extra == "dev"
+Requires-Dist: sphinx>=5.0.0; extra == "dev"
+Requires-Dist: sphinx-rtd-theme>=1.0.0; extra == "dev"
+Requires-Dist: wandb>=0.15.0; extra == "dev"
+Provides-Extra: plotting
+Requires-Dist: seaborn>=0.12.0; extra == "plotting"
+Dynamic: author
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-python
+
+================================================================================
+TMO: TEMPORAL MULTI‑OMICS (ASYM) – DOCUMENTATION
+================================================================================
+
+Project overview: Deep learning framework for single‑cell ATAC+RNA multi‑omics that learns cell‑state‑conditional regulatory lags (Δτ) using asymmetric cross‑modal attention. The pipeline includes data preparation, gene‑level ATAC matrix building, PCA/LSI latent projection, training of symmetric and asymmetric models, evaluation, plotting, and validation.
+
+**Uniform interpretation**: After running the pipeline, all Δτ heatmaps follow the same biological convention: **positive Δτ (red in heatmap) means ATAC leads RNA (priming), negative Δτ (blue) means RNA leads ATAC (activity‑dependent).** This is achieved by automatically flipping the sign for datasets where the pseudotime was reversed (using an early marker gene).
+
+================================================================================
+1. DIRECTORY STRUCTURE (recommended)
+================================================================================
+ProjectRoot/
+├── tmo/                       # Core library (do not modify manually)
+│   ├── __init__.py
+│   ├── __version__.py
+│   ├── data/                  # Data loading
+│   │   ├── __init__.py
+│   │   └── loader.py
+│   ├── ccf/                   # CCF estimation
+│   │   ├── __init__.py
+│   │   ├── local_ccf.py
+│   │   └── gp_smoothing.py
+│   ├── models/                # Model architectures
+│   │   ├── __init__.py
+│   │   ├── tokenizer.py
+│   │   ├── attention.py
+│   │   ├── lagmlp.py
+│   │   ├── tmo_block.py
+│   │   └── tmo_model.py
+│   ├── training/              # Losses and trainers
+│   │   ├── __init__.py
+│   │   ├── losses.py
+│   │   ├── train_phase_a.py   (not used in asymmetric pipeline)
+│   │   ├── train_phase_b.py   (not used)
+│   │   ├── train_phase_c.py   (not used)
+│   │   └── callbacks.py
+│   ├── validation/            # Metrics
+│   │   ├── __init__.py
+│   │   ├── lcs.py
+│   │   ├── delta_tau.py
+│   │   └── ads.py
+│   ├── plotting/              # Figure generation
+│   │   ├── __init__.py
+│   │   ├── heatmap.py
+│   │   ├── attention_offset.py
+│   │   ├── training_curves.py
+│   │   └── violin_adstau.py
+│   └── utils/                 # Helpers
+│       ├── __init__.py
+│       ├── config.py
+│       ├── logger.py
+│       └── sparse_attention.py
+├── scripts/                   # User‑facing analysis scripts
+│   ├── 1_create_gene_level_tmo_data.py
+│   ├── 2_annotate_components.py
+│   ├── 3_train_tmo_asymmetric.py
+│   ├── 3_train_tmo_symmetric.py
+│   ├── 4_evaluate_asymmetric.py
+│   ├── 5_plot_correlation_heatmap.py
+│   ├── 6_plot_training_curves.py
+│   ├── 7_lcs_analysis.py
+│   ├── 8_plot_marker_delta_tau_profiles.py
+│   ├── 9_gene_program_ordering.py
+├── requirements.txt
+├── setup.py
+├── LICENSE
+└── README.md
+
+================================================================================
+2. REQUIRED INPUT FILES (per dataset)
+================================================================================
+For each 10x Multiome dataset you need the following two files (from the Cell Ranger ARC output):
+
+   A) filtered_feature_bc_matrix.h5 (HDF5)
+        Contains RNA counts and ATAC peak counts. The file is read by muon.
+
+   B) atac_peak_annotation.tsv (TSV)
+        Map from ATAC peaks to proximal genes. Columns: 'peak' (or 'chrom','start','end') and 'gene'.
+        Optional columns: 'distance', 'peak_type'.
+
+Place these two files in a dedicated folder (e.g., ./10x_dataset_name/).
+
+Datasets:
+-10x Multiome PBMC / Mouse Brain / Mouse Kidney/ Human Brain – for trajectory learning
+-GSE288996 (CAT‑ATAC) – drug‑induced perturbation
+-GSE278910 (MultiPerturb‑seq) – CRISPR screen in cancer cells
+-GSM8720909 (CAT‑ATAC HAP1) – fine‑mapping of CREs
+
+================================================================================
+3. OVERVIEW OF ANALYSIS SCRIPTS (numbered)
+================================================================================
+All scripts should be run from the 'scripts/' directory (or with full path). They assume the tmo library is installed (`pip install -e .` from project root).
+
+-------------------------------------------------------------------------------
+3.1 1_create_gene_level_tmo_data.py
+-------------------------------------------------------------------------------
+Purpose: Build a gene‑level ATAC matrix (cells × genes) by mapping peaks to genes using the annotation TSV. Computes pseudotime as the first diffusion component (no root needed, monotonic) and optionally reverses direction using a marker gene. Stores a flag `pseudotime_reversed` in `.uns` for later use. Creates final AnnData object ready for TMO.
+
+Usage:
+  python 1_create_gene_level_tmo_data.py --data_dir <folder> --output_file <filename.h5ad> [--root_marker <gene_name>]
+
+Parameters:
+  --data_dir      : Folder containing the H5 and TSV files.
+  --output_file   : Path to save the generated AnnData (e.g., ./dataset/gene_level_tmo_ready.h5ad).
+  --root_marker   : (Optional) Gene name (e.g., CD34, Pax6). If provided and its expression correlates negatively with the initial pseudotime, the pseudotime is reversed so that the marker increases with pseudotime.
+
+Output:
+  - AnnData file with:
+      .X               : raw RNA counts
+      .obsm['ATAC_gene'] : gene‑level ATAC accessibility (sparse)
+      .obs['pseudotime'] : pseudotime values in [0,1] (first diffusion component, optionally reversed)
+      .uns['pseudotime_reversed'] : boolean flag indicating whether reversal was applied.
+
+Notes:
+  - The script automatically detects peak identifiers (column 'peak' or chrom/start/end).
+  - No root cell necessary – the first diffusion component is intrinsically monotonic.
+  - If you have a reliable early marker, use `--root_marker` to ensure the direction corresponds to early → late.
+  - If no marker is given, the direction is arbitrary but consistent across cells; the relative ordering remains valid.
+
+-------------------------------------------------------------------------------
+3.2 2_annotate_components.py
+-------------------------------------------------------------------------------
+Purpose: Perform PCA on the RNA matrix of the TMO‑ready AnnData, extract top genes per principal component, and run GO enrichment (via Enrichr) for each component.
+
+Usage:
+  python 2_annotate_components.py --data_path <file.h5ad> [--n_components 50] [--n_top_genes 100] [--n_top_go 5] [--delay 2.0]
+
+Parameters:
+  --data_path      : Path to the gene_level_tmo_ready.h5ad file.
+  --n_components   : Number of PCA components to annotate (default 50).
+  --n_top_genes    : Number of top (abs loading) genes per component (default 100).
+  --n_top_go       : Number of top GO terms to store per component (default 5).
+  --delay          : Seconds to wait between Enrichr requests (avoid 429 errors, default 2.0).
+  --organism       : Species for GO enrichment: 'human' (default) or 'mouse'.
+
+Output:
+  - tmo_results/component_annotation.csv : Table with columns Component, Top_genes (comma‑separated), GO_terms (semicolon‑separated).
+
+Note: Requires internet connection for Enrichr.
+
+-------------------------------------------------------------------------------
+3.3 3_train_tmo_asymmetric.py and 3_train_tmo_symmetric.py
+-------------------------------------------------------------------------------
+Purpose: Train the TMO model using latent representations (PCA for RNA, LSI for ATAC) with 50 components each. The asymmetric version uses two‑pass forward with attention bias; the symmetric version uses standard attention (no bias). Both save best model by validation LCS.
+
+Usage (asymmetric):
+  python 3_train_tmo_asymmetric.py --data_path <file.h5ad> --epochs 50 --val_interval 5 --lambda_lag 0.1
+
+Usage (symmetric):
+  python 3_train_tmo_symmetric.py --data_path <file.h5ad> --epochs 50 --val_interval 5 --lambda_lag 0.1 --lambda_align 0
+
+Parameters:
+  --data_path      : Input AnnData (gene_level_tmo_ready.h5ad).
+  --epochs         : Number of training epochs (default 50).
+  --val_interval   : Compute validation LCS every N epochs (default 5).
+  --lambda_lag     : Weight for lag loss (default 0.1). For symmetric, keep >0 to learn lags; otherwise set 0.
+  --lambda_align   : Weight for alignment loss (default 0, not used).
+  --batch_size     : Batch size (default 32).
+  --lr             : Learning rate (default 1e-3).
+
+Outputs (saved in tmo_results/):
+  - tmo_asymmetric_best.pt / tmo_symmetric_best.pt : Model with highest validation LCS.
+  - tmo_asymmetric_last.pt / tmo_symmetric_last.pt : Final model after all epochs.
+  - training_metrics.csv / training_metrics_symmetric.csv : CSV with epoch, loss, LCS (only for epochs where LCS computed).
+
+Notes:
+  - The model uses PCA on RNA (50 comps) and LSI on ATAC_gene (50 comps). These are recomputed each run.
+  - Validation LCS is Spearman correlation between predicted per‑ATAC‑component lags (averaged over cells) and CCF‑derived lags (from full dataset).
+  - Training time: ~10‑20 minutes on CPU for 3000 cells, 50 epochs.
+
+-------------------------------------------------------------------------------
+3.4 4_evaluate_asymmetric.py
+-------------------------------------------------------------------------------
+Purpose: Evaluate a trained asymmetric model. Computes the CCF Δτ surface, clusters components by Δτ profile, generates a Δτ heatmap (Figure 1), and prints the LCS. **Sign convention**: If the dataset was reversed during creation (`.uns['pseudotime_reversed']` = True), the Δτ values are automatically multiplied by –1 so that positive Δτ always means ATAC leads RNA (priming). A console message confirms the flip.
+
+Usage:
+  python 4_evaluate_asymmetric.py --data_path <file.h5ad> --model_path <model.pt> --annotation_mode [component|cluster_aggregate] --dist_threshold 1.0 --standardize
+
+Parameters:
+  --data_path        : Input AnnData.
+  --model_path       : Path to trained model (.pt).
+  --annotation_mode  : "component" (each component individually) or "cluster_aggregate" (one row per cluster of components).
+  --dist_threshold   : Distance threshold for clustering (if mode cluster_aggregate, default 1.0).
+  --standardize      : Standardise Δτ profiles before clustering (recommended, default True).
+  --n_cells          : (optional) Number of cells to use (all if None).
+
+Output:
+  - tmo_results/fig1_latent_delta_tau.pdf : Δτ heatmap (rows = components or clusters, columns = pseudotime bins). Positive values (red) indicate ATAC leads (priming), negative (blue) indicate RNA leads (activity‑dependent).
+  - Console: LCS (re‑computed using the model's predictions) and top genes (if annotation file exists).
+
+-------------------------------------------------------------------------------
+3.5 5_plot_correlation_heatmap.py
+-------------------------------------------------------------------------------
+Purpose: Generate Figure 2 – ATAC‑RNA coupling over pseudotime. For each RNA component, plots the maximum absolute correlation with any ATAC component, binned by pseudotime.
+
+Usage:
+  python 5_plot_correlation_heatmap.py --data_path <file.h5ad> --n_bins 10
+
+Parameters:
+  --data_path   : Input AnnData.
+  --n_bins      : Number of pseudotime bins (default 10).
+
+Output:
+  - tmo_results/fig2_correlation_max_over_pseudotime.pdf
+
+-------------------------------------------------------------------------------
+3.6 6_plot_training_curves.py
+-------------------------------------------------------------------------------
+Purpose: Plot training loss and validation LCS over epochs using the training_metrics.csv (or training_metrics_symmetric.csv) file.
+
+Usage:
+  python 6_plot_training_curves.py --metrics_path <path_to_csv>
+
+Parameters:
+  --metrics_path : Path to the CSV file (e.g., ./tmo_results/training_metrics.csv).
+
+Output:
+  - tmo_results/fig3_training_curves.pdf
+
+-------------------------------------------------------------------------------
+3.7 7_lcs_analysis.py
+-------------------------------------------------------------------------------
+Purpose: Comprehensive LCS comparison. Loads asymmetric and symmetric models (if provided), computes scatter plots of predicted lags vs CCF lags, and generates a bar chart comparing the best LCS values (taken from training metrics CSVs).
+
+Usage:
+  python 7_lcs_analysis.py --data_path <file.h5ad> --asym_model <model.pt> --sym_model <model.pt>
+
+Parameters:
+  --data_path    : Input AnnData.
+  --asym_model   : Path to asymmetric model (.pt).
+  --sym_model    : Path to symmetric model (.pt).
+  --output_dir   : (default ./tmo_results)
+
+Output:
+  - tmo_results/lcs_scatter_asymmetric.png
+  - tmo_results/lcs_scatter_symmetric.png
+  - tmo_results/lcs_comparison.png
+
+Notes:
+  - If `--sym_model` is omitted, only asymmetric analysis is performed.
+  - Best LCS values are read from training_metrics.csv and training_metrics_symmetric.csv (if present). Otherwise, they are computed on the fly.
+  - This script automatically handles both model classes (TMOLatentModelAsymmetric and TMOLatentModel).
+
+-------------------------------------------------------------------------------
+3.8 8_plot_marker_delta_tau_profiles.py
+-------------------------------------------------------------------------------
+Purpose: For a list of marker genes, plot the Δτ profile (from CCF, not from model) of the RNA component with highest loading for that gene, together with the mean Δτ across all components.
+
+Usage:
+  python 8_plot_marker_delta_tau_profiles.py --data_path <file.h5ad> --markers Gene1 Gene2 ... --output_dir <dir>
+
+Parameters:
+  --data_path    : Input AnnData.
+  --markers      : Space‑separated list of gene symbols (must match var_names).
+  --output_dir   : Output directory for the PDF.
+
+Output:
+  - tmo_results/marker_delta_tau_profiles.pdf : Multi‑panel line plot.
+
+-------------------------------------------------------------------------------
+3.9 9_gene_program_ordering.py
+-------------------------------------------------------------------------------
+Purpose: Order components by their Δτ at the last pseudotime window, split into most negative (RNA‑led) and most positive (ATAC‑led) groups, collect top genes, and perform GO enrichment for each group. Produces a bar plot and CSV tables.
+
+Usage:
+  python 9_gene_program_ordering.py --data_path <file.h5ad> --n_top_components 10
+
+Parameters:
+  --data_path         : Input AnnData.
+  --n_top_components  : Number of components to take from each end (default 10).
+  --output_dir        : (default ./tmo_results)
+  --organism       : Species for GO enrichment: 'human' (default) or 'mouse'.
+
+Output:
+  - tmo_results/component_ordering_by_late_lag.csv   : All components ranked by late Δτ.
+  - tmo_results/gene_program_go_comparison.pdf       : Bar plot of top GO terms for RNA‑led vs ATAC‑led groups.
+  - tmo_results/go_enrichment_negative_lag.csv       : Full enrichment results for negative‑lag group.
+  - tmo_results/go_enrichment_positive_lag.csv       : Full enrichment results for positive‑lag group.
+
+Note: Internet required for GO enrichment (Enrichr). If 429 errors occur, increase the delay in the script or run after a few minutes.
+
+-------------------------------------------------------------------------------
+3.10 10_validate_multigene.py
+-------------------------------------------------------------------------------
+Purpose: Enhanced causal validation using a set of known target genes. Reads a text
+         file with one gene symbol per line, maps each gene to its best RNA component,
+         collects δΔτ for those components, and tests against background components
+         (one‑sided Mann‑Whitney U). Recommended for datasets with limited sample size.
+
+Usage:
+  python 11_validate_multigene.py --data_path <file.h5ad> --model_path <model.pt>
+         --perturb_label SMARCB1 --target_genes_file target_genes.txt --output_dir <dir>
+
+Parameters:
+  --data_path         : Combined AnnData (RNA + ATAC) with .obs['guide_target'] and .obs['pseudotime'].
+  --model_path        : Trained asymmetric model (.pt).
+  --control_label     : Value in guide_target for control cells (default 'NTC').
+  --perturb_label     : Value in guide_target for perturbed cells (e.g., 'SMARCB1').
+  --target_genes_file : Text file with one gene symbol per line (e.g., CDKN1A, MYC, …).
+  --output_dir        : Directory for results (default ./tmo_results_multip).
+  --n_components      : Number of PCA/LSI components (default 50).
+
+Output:
+  - tmo_results/validation_multigene_results.txt : Summary including p‑value, mean shifts.
+  - Console output: component mappings, mean shifts, p‑value.
+
+Interpretation:
+  - A low p‑value (<0.05) indicates that the perturbation causes a significantly larger lag shift in the components associated with known target genes – causal validation.
+  - A non‑significant p‑value may be due to small sample size (e.g., 147 perturbed cells) but a directional trend (target mean > background mean) is still encouraging.
+
+================================================================================
+4. TYPICAL WORKFLOW FOR A NEW DATASET
+================================================================================
+Assuming you have the two required files in folder `./my_dataset`:
+
+1. Create gene‑level AnnData:
+   python 1_create_gene_level_tmo_data.py --data_dir ./my_dataset --output_file ./my_dataset/tmo_ready.h5ad [--root_marker <early_gene>]
+
+2. Annotate components:
+   python 2_annotate_components.py --data_path ./my_dataset/tmo_ready.h5ad --n_components 50 --organism human
+
+3. Train asymmetric model:
+   python 3_train_tmo_asymmetric.py --data_path ./my_dataset/tmo_ready.h5ad --epochs 50 --val_interval 5 --lambda_lag 0.1
+
+4. Train symmetric model (optional, for comparison):
+   python 3_train_tmo_symmetric.py --data_path ./my_dataset/tmo_ready.h5ad --epochs 50 --val_interval 5 --lambda_lag 0.1
+
+5. Generate Δτ heatmap (Figure 1):
+   python 4_evaluate_asymmetric.py --data_path ./my_dataset/tmo_ready.h5ad --model_path ./tmo_results/tmo_asymmetric_best.pt --annotation_mode cluster_aggregate --dist_threshold 1.0
+
+6. Generate correlation heatmap (Figure 2):
+   python 5_plot_correlation_heatmap.py --data_path ./my_dataset/tmo_ready.h5ad --n_bins 10
+
+7. Generate training curves (Figure 3):
+   python 6_plot_training_curves.py --metrics_path ./tmo_results/training_metrics.csv
+
+8. LCS analysis and comparison:
+   python 7_lcs_analysis.py --data_path ./my_dataset/tmo_ready.h5ad --asym_model ./tmo_results/tmo_asymmetric_best.pt --sym_model ./tmo_results/tmo_symmetric_best.pt
+
+9. (Optional) Marker profiles and gene program ordering:
+   python 8_plot_marker_delta_tau_profiles.py --data_path ./my_dataset/tmo_ready.h5ad --markers GENE1 GENE2
+   python 9_gene_program_ordering.py --data_path ./my_dataset/tmo_ready.h5ad --n_top_components 10 --organism human
+   
+10. (Optional) Causal validation with Perturb‑seq:
+  python 11_validate_multigene.py --data_path ./multip_seq_combined.h5ad --model_path ./tmo_results/tmo_asymmetric_best.pt --perturb_label SMARCB1 --target_genes_file target_genes.txt
+
+All outputs are written to `./tmo_results/`. For multiple datasets, process them one after another; you may want to rename or move the `tmo_results` folder between runs.
+
+================================================================================
+5. DEPENDENCIES
+================================================================================
+See requirements.txt. Key packages:
+  torch, scanpy, anndata, scikit‑learn, scipy, matplotlib, seaborn, pandas, numpy, tqdm, muon, pysam (optional), gseapy.
+
+Install with: pip install -r requirements.txt
+
+================================================================================
+6. TROUBLESHOOTING
+================================================================================
+- If `1_create_gene_level_tmo_data.py` fails with "Annotation file missing chrom, start, end columns", ensure your TSV has a 'peak' column (e.g., 'chr:start-end'). The script now handles both formats.
+
+- If `1_create_gene_level_tmo_data.py` prints a low peak‑gene match rate (<30%), the format of peak names in the H5 file (`chr:start-end` vs `chr_start_end`) does not match the annotation TSV. Add a custom `norm_peak` function or adjust the script.
+
+- If Enrichr returns "429 errors", add time.sleep(10) between requests in the script, or run after a few minutes.
+
+- If training loss does not decrease, check that the data is properly normalised (log1p) and that pseudotime is sorted.
+
+- If LCS is extremely low (e.g., <0.1) for asymmetric model, verify that you are using the best checkpoint (`tmo_asymmetric_best.pt`) and that the annotation was correctly created.
+
+- For very large datasets (>>10k cells), consider using `--quick_test` or reduce number of PCA components to 30.
+
+================================================================================
+7. OUTPUT FILE TYPES
+================================================================================
+- .h5ad : AnnData object (HDF5), can be read with `anndata.read_h5ad()`.
+- .pt   : PyTorch model checkpoint, can be loaded with `torch.load()`.
+- .csv  : Tabular data, open with any spreadsheet or pandas.
+- .pdf / .png : Figures.
+
+================================================================================
+8. CORE LIBRARY MODULES (for advanced users)
+================================================================================
+- tmo.data.loader       : functions to load 10x Multiome H5, create gene‑level ATAC.
+- tmo.ccf.local_ccf     : sliding window CCF, block bootstrap, GP smoothing.
+- tmo.models            : tokenizers, attention (asymmetric), LagMLP, TMOBlock, TMOEncoder.
+- tmo.training.losses   : MSE, InfoNCE, lag consistency, supervised LagMLP loss.
+- tmo.validation        : LCS, δΔτ, ADS.
+- tmo.plotting          : heatmaps, ridge plots, training curves, violin plots.
+
+================================================================================
+9. CITATION
+================================================================================
+
+If you use TMO in your research, please cite:
+
+@article{PhabelLopez2026,
+  title={Temporal Multi-Omics (TMO): Asymmetric cross-modal attention for modelling chromatin-to-transcription lags},
+  author={P. A. Lopez-Delgado},
+  journal={Nature Methods (submitted)},
+  year={2026}
+}
+
+================================================================================
+10. LICENSE
+================================================================================
+
+MIT License. See LICENSE for details.
+
+================================================================================
+END OF DOCUMENTATION
+================================================================================

@@ -1,0 +1,17 @@
+# Data files (go to Zenodo)
+*.h5ad
+*.pt
+*.pkl
+*.rds
+*.h5
+
+# Results and figures (may be regenerated)
+results/
+figures/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Conda
+envs/

@@ -1,0 +1,237 @@
+================================================================================
+TMO: TEMPORAL MULTI‑OMICS (ASYM) – COMPLETE METHODS (final pipeline)
+================================================================================
+
+This document describes the mathematical framework, algorithms, and
+biological interpretation of TMO as actually implemented and validated.
+
+================================================================================
+1. DATA PREPROCESSING AND GENE‑LEVEL ATAC MATRIX
+================================================================================
+
+Input: 10x Multiome dataset:
+  - filtered_feature_bc_matrix.h5 : paired RNA and ATAC peak counts.
+  - atac_peak_annotation.tsv      : mapping from ATAC peaks to proximal genes.
+
+Procedure:
+  1. Read the H5 file using muon.read_10x_h5() to obtain a MuData object
+     with rna and atac modalities.
+  2. Build a binary peak‑gene incidence matrix M ∈ {0,1}^{P × G}, where
+     P = number of peaks, G = number of unique genes. M_{p,g}=1 if peak p
+     is annotated to gene g (from the TSV).
+  3. Compute the gene‑level ATAC matrix (cells × genes):
+        A_gene = X_peak · M,
+     where X_peak is the sparse peak‑by‑cell count matrix. A_gene is stored
+     in `.obsm['ATAC_gene']` as a CSR matrix.
+  4. RNA counts remain in `.X` and are normalised later.
+
+================================================================================
+2. PSEUDOTIME FROM FIRST DIFFUSION COMPONENT
+================================================================================
+
+Goal: Assign a continuous pseudotime τ ∈ [0,1] to each cell reflecting
+developmental progression, without requiring a known root cell.
+
+Steps:
+  1. Normalise RNA counts to 10 000 total counts per cell, apply log1p.
+  2. Select top 2000 highly variable genes (Seurat flavour).
+  3. PCA (30 components), k‑NN graph (k=15), diffusion maps (15 comps).
+  4. Take the first diffusion component as initial pseudotime τ₀.
+  5. Min‑max scale to [0,1].
+
+Optional reversal with an early marker gene:
+  - If a marker gene is provided (e.g., Pax6, CD34), compute Pearson
+    correlation r between its expression and τ₀.
+  - If r < 0, set τ = 1 − τ₀, store flag `pseudotime_reversed` = True.
+  - Else keep τ = τ₀, flag = False.
+
+The flag is saved in `.uns['pseudotime_reversed']`. During evaluation
+and plotting, Δτ signs are flipped if the flag is True, ensuring that
+positive Δτ always means ATAC leads RNA (priming).
+
+================================================================================
+3. LATENT REPRESENTATIONS
+================================================================================
+
+To reduce dimensionality:
+
+- RNA latent: PCA with 50 components on the log‑normalised RNA matrix,
+  yielding Z_RNA ∈ ℝ^{N × 50}.
+
+- ATAC latent: First apply TF‑IDF transformation to A_gene:
+    X_tfidf = A_gene * log(N / df), normalised to l2 norm.
+  Then truncated SVD with 50 components: Z_ATAC ∈ ℝ^{N × 50}.
+
+These 100 tokens (50 ATAC + 50 RNA) per cell are the input to TMO.
+
+================================================================================
+4. LOCAL CROSS‑CORRELATION FUNCTION (CCF) FOR GROUND‑TRUTH Δτ
+================================================================================
+
+For each matched component pair (i,i), we compute a signed, time‑resolved
+cross‑correlation along pseudotime.
+
+Let a_i(τ) and r_i(τ) be the standardised ATAC and RNA component scores.
+Slide a window of half‑width w = 0.1 across pseudotime at centres
+τ₀ ∈ {0.1, 0.2, …, 0.9}. Inside each window I:
+
+  CCF_i(τ₀, ℓ) = (1/|I|) Σ_{t∈I} a_i(τ_t) · r_i(τ_t + ℓ),
+
+where ℓ is discretised over [−0.3, 0.3] (61 points) and τ_t + ℓ is
+linearly interpolated using ccf_single_gene (interpolation onto a regular
+grid). The peak lag is:
+
+  Δτ_i(τ₀) = argmax_ℓ CCF_i(τ₀, ℓ).
+
+The surface Δτ_i(τ) is smoothed with Gaussian process regression
+(Matern‑3/2 kernel) to produce Δτ_i_smooth(τ). The training target is
+the smoothed value at the last window (τ = 0.9): Δτ_i_target.
+
+================================================================================
+5. TMO MODEL ARCHITECTURE
+================================================================================
+
+Notation:
+  - N: batch size
+  - d_model = 64
+  - n_heads = 4
+  - n_layers = 2
+  - n_comps = 50
+
+Tokenisation:
+  Each cell is represented by 100 tokens (50 ATAC, then 50 RNA). The
+  embedding for a token is:
+    x = proj(latent_value) + modality_embedding(mod) + pseudotime_embedding(τ),
+  where:
+    - proj is a linear layer (1 → d_model) applied to the scalar PCA/LSI
+      value. This gives each token cell‑state‑specific information.
+    - modality_embedding: learnable embedding, 0 = RNA, 1 = ATAC.
+    - pseudotime_embedding: 2‑layer MLP (128 → 64 → d_model) mapping τ.
+
+Two‑pass forward:
+
+  **Pass 1 (unbiased):**
+    Tokens → transformer encoder with no cross‑attention bias.
+    After encoding, mean‑pool the ATAC token outputs → cell embedding
+    z_c ∈ ℝ^{d_model}.
+
+  **Lag and width prediction:**
+    For each ATAC component i and each RNA component j, a shared
+    LagMLP / WidthMLP takes as input [z_c; e_comp] (where e_comp is a
+    learnable component embedding) and predicts a signed lag Δτ̂ and a
+    window width σ̂².
+
+    LagMLP architecture:
+        h = LayerNorm(concat(z_c, e_comp))
+        h = GELU(Linear(2d_model → d_model))
+        h = Dropout(0.1)
+        h = GELU(Linear(d_model → d_model//2))
+        h = Dropout(0.1)
+        Δτ̂_raw = Linear(d_model//2 → 1)
+        Δτ̂ = Δτ_max · tanh(Δτ̂_raw),  Δτ_max = 0.5
+
+    WidthMLP: identical structure, output passed through Softplus plus
+    a minimum σ²_min = 0.001.
+
+    For each cell we obtain:
+        Δτ̂_ATAC, σ̂²_ATAC ∈ ℝ^{N×50}
+        Δτ̂_RNA,  σ̂²_RNA  ∈ ℝ^{N×50}
+
+  **Pass 2 (biased):**
+    The same tokens are processed again. Cross‑attention biases are now
+    active. For an ATAC token a_i attending to an RNA token r_j:
+        b_{ij} = – ( (τ_j – τ_i – Δτ̂_{RNA,j})² / (2 σ̂²_{RNA,j}) )
+    For the reverse direction (RNA → ATAC):
+        b_{ji}^{rev} = – ( (τ_i – τ_j + Δτ̂_{ATAC,i})² / (2 σ̂²_{ATAC,i}) )
+    Biases are added to the attention logits before softmax.
+
+  **Decoder:**
+    After Pass 2, the RNA token outputs are linearly projected to
+    reconstruct the RNA latent components R_hat ∈ ℝ^{N×50}.
+
+Symmetric baseline: The same model is used but with use_bias=False,
+so only Pass 1 runs and no lag loss is applied.
+
+================================================================================
+6. TRAINING LOSS FUNCTION
+================================================================================
+
+The asymmetric model is trained on the full dataset with:
+
+  L_total = λ_recon · L_recon + λ_lag · L_lag
+
+  - λ_recon = 1.0, λ_lag = 0.1
+
+  - L_recon = MSE(R_hat, R_target)   (reconstruction of RNA components)
+
+  - L_lag: For each ATAC component i, compute the mean predicted lag
+    over cells: Δτ̂_i = (1/N) Σ_c Δτ̂_ATAC(c,i). Then
+        L_lag = MSE( {Δτ̂_i}, {Δτ_i_target} ).
+
+The symmetric baseline uses only L_recon (no lag loss).
+
+Optimiser: Adam (lr = 1e-3), StepLR scheduler (step_size=20, gamma=0.5).
+Training runs for 50 epochs. After every val_interval (5) epochs, the
+Lag Concordance Score (LCS) – Spearman correlation between predicted
+per‑component lags and the CCF targets – is computed on the full dataset
+(in‑set). The model with the highest LCS is saved as tmo_asymmetric_best.pt.
+
+================================================================================
+7. VALIDATION METRICS
+================================================================================
+
+7.1 Lag Concordance Score (LCS)
+  For each ATAC component i, the mean predicted lag Δτ̂_i is compared to
+  the CCF‑derived target Δτ_i_target. LCS = Spearman ρ( {Δτ̂_i}, {Δτ_i_target} ).
+  Reported on the full dataset; values >0.9 indicate the model captures
+  the temporal ordering of regulatory lags.
+
+7.2 ChIP‑seq validation (deterministic, full background)
+  For a transcription factor, its top‑500 bound genes are obtained from
+  ChIP‑Atlas (peak‑to‑gene mapping ±5 kb from TSS). Component‑level CCF
+  lags are projected to gene‑level lags via the PCA loadings:
+
+    gene_lag = (normalised_loadings)ᵀ · comp_lag_ccf.
+
+  The background set is defined as **all non‑target genes** (optionally
+  restricted to those within ±0.5 log‑expression units of the target‑gene
+  median to control for expression level). No random subsampling is
+  performed; the full set of eligible background genes is used, making
+  the test fully deterministic. A two‑sided Mann‑Whitney U test compares
+  the Δτ values of target genes against this background. This validation
+  does not rely on any model predictions — it uses only the data‑derived
+  CCF surface — and therefore provides an independent, orthogonal
+  assessment of whether the regulatory lag signal is associated with
+  physical transcription factor binding.
+
+7.3 Perturb‑seq validation (δΔτ)
+  For a knockout (e.g. SMARCB1), the asymmetric model is trained on control
+  cells. δΔτ = |Δτ_perturbed – Δτ_control| is computed for each ATAC
+  component. Target‑associated components are compared against background
+  using a one‑sided Mann‑Whitney U test.
+
+================================================================================
+8. UNIFORM BIOLOGICAL INTERPRETATION OF Δτ
+================================================================================
+
+After pseudotime reversal is accounted for:
+  - Positive Δτ (red in heatmaps) → ATAC leads RNA (chromatin priming).
+  - Negative Δτ (blue) → RNA leads ATAC (activity‑dependent regulation).
+
+The correlation heatmap (Figure 2) uses absolute Pearson correlation
+(always ≥0) and reveals a U‑shape characteristic of developmental
+decoupling.
+
+================================================================================
+9. DEPENDENCIES AND REPRODUCIBILITY
+================================================================================
+
+Python 3.10, PyTorch 2.1, scanpy 1.9, muon 0.6, scikit‑learn 1.3,
+scipy, matplotlib, seaborn, pandas, numpy, tqdm, gseapy 1.0.
+
+The complete pipeline is provided as numbered scripts, and the core
+library `tmo` is open‑source under MIT license.
+
+================================================================================
+END OF METHODS
+================================================================================

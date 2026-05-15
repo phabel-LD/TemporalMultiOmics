@@ -1,0 +1,217 @@
+================================================================================
+JOURNAL LIST – NO ARTICLE PROCESSING CHARGES (APC)
+================================================================================
+Ordered by approximate impact factor / prestige (highest first). 
+Acceptance rates are estimates; always check journal websites.
+================================================================================
+
+TIER 1 – TOP PRESTIGE (NO APC FOR SUBSCRIPTION / OPEN ACCESS OPTIONS)
+
+1.  Nature
+    - Publisher: Springer Nature
+    - APC: None for traditional subscription (Open Access optional, cost ~€10,850)
+    - Impact Factor: ~64.8
+    - Acceptance Rate: ~8%
+    - Notes: Subscribe-to-Open agreements may allow free OA for some authors.
+    - URL: https://www.nature.com
+
+2.  Science
+    - Publisher: AAAS
+    - APC: None (author may share final accepted version immediately)
+    - Impact Factor: ~44.7
+    - Acceptance Rate: ~7%
+    - Notes: Science allows immediate public access without fee via its public access policy.
+    - URL: https://www.science.org
+
+3.  Cell
+    - Publisher: Cell Press / Elsevier
+    - APC: None for subscription; Open Access optional (~$5,200)
+    - Impact Factor: ~41.6
+    - Acceptance Rate: <10%
+    - URL: https://www.cell.com/cell/home
+
+4.  Nature Biotechnology
+    - Publisher: Springer Nature
+    - APC: None for traditional subscription (OA optional)
+    - Impact Factor: ~46.9
+    - Acceptance Rate: ~10%
+    - URL: https://www.nature.com/nbt/
+
+5.  Nature Methods
+    - Publisher: Springer Nature
+    - APC: None for subscription (OA optional)
+    - Impact Factor: ~36.8
+    - Acceptance Rate: ~12%
+    - URL: https://www.nature.com/nmeth/
+
+6.  Genome Research
+    - Publisher: Cold Spring Harbor Laboratory Press
+    - APC: None for subscription (OA optional, fee ~$2,500)
+    - Impact Factor: ~11.1
+    - Acceptance Rate: ~15%
+    - URL: https://genome.cshlp.org
+
+7.  Genome Biology
+    - Publisher: BioMed Central (Springer Nature)
+    - APC: None for traditional? Actually this journal is fully OA with APC (~$4,000). Not free.
+      (Excluded from free list – but included as reference.)
+      → Not recommended for no‑APC list.
+
+8.  eLife
+    - Publisher: eLife Sciences Publications
+    - APC: Publication fee $3,000 (waivers available for hardship)
+    - NOT free, but has generous waiver policy.
+
+9.  PLOS Computational Biology
+    - Publisher: Public Library of Science
+    - APC: $3,000 (but many institutions have flat‑fee agreements waiving individual APCs)
+    - Impact Factor: ~4.4
+    - Acceptance Rate: ~35%
+    - URL: https://journals.plos.org/ploscompbiol/
+
+TIER 2 – HIGH-IMPACT HYBRID / SUBSCRIPTION (NO APC FOR TRADITIONAL PUBLISHING)
+
+10. Bioinformatics
+    - Publisher: Oxford University Press
+    - APC: None for subscription (OA optional, ~$3,799)
+    - Impact Factor: ~5.8
+    - Acceptance Rate: ~25%
+    - URL: https://academic.oup.com/bioinformatics
+
+11. Briefings in Bioinformatics
+    - Publisher: Oxford University Press
+    - APC: None for subscription (OA optional, ~$3,885)
+    - Impact Factor: ~9.5
+    - Acceptance Rate: ~30%
+    - URL: https://academic.oup.com/bib
+
+12. Nucleic Acids Research (NAR)
+    - Publisher: Oxford University Press
+    - APC: None for subscription (OA optional, ~$3,500)
+    - Impact Factor: ~16.6
+    - Acceptance Rate: ~25%
+    - URL: https://academic.oup.com/nar
+
+13. BMC Bioinformatics
+    - Publisher: BioMed Central (Springer Nature)
+    - APC: ~$2,890 (NOT free). However, many institutions have transformative agreements covering APC.
+    - Not guaranteed free.
+
+14. GigaScience
+    - Publisher: Oxford University Press
+    - APC: ~$2,638 (NOT free). Waivers available for low‑income countries.
+    - Not free, but listed for reference.
+
+15. PeerJ Computer Science
+    - Publisher: PeerJ Inc.
+    - APC: $1,395 (one‑time membership also available)
+    - Not free.
+
+TIER 3 – NO‑APC OR LOW‑COST SPECIALISED JOURNALS (CHECK EACH)
+
+- Database: The Journal of Biological Databases and Curation
+  - APC: $2,598 (NOT free). Waivers available.
+
+- Algorithms for Molecular Biology
+  - APC: ~$2,590 (NOT free). Waivers for low‑income countries.
+
+- BioData Mining
+  - APC: ~$2,790 (NOT free). Waivers available.
+
+- Biology Direct
+  - APC: ~$2,990 (NOT free). Waivers for low‑income countries.
+
+- Source Code for Biology and Medicine
+  - APC: Yes (amount not specified). Not free.
+
+- Journal of Integrative Bioinformatics
+  - APC: €1,000 (NOT free). No waiver policy.
+
+- BioMed Research International
+  - APC: ~$2,400 (NOT free). Waivers for low‑income countries.
+
+- BMC Research Notes
+  - APC: ~$1,790 (NOT free). Waivers for low‑income countries.
+
+- BMC Genomic Data
+  - APC: ~$1,155 for Data Notes; other article types higher (NOT free). Waivers.
+
+- BMC Molecular and Cell Biology
+  - APC: ~$2,590 (NOT free). Waivers.
+
+- Computational Biology and Chemistry (Elsevier)
+  - APC: none for subscription (hybrid, OA optional ~$3,000)
+  - Impact Factor: ~2.5
+  - URL: https://www.sciencedirect.com/journal/computational-biology-and-chemistry
+
+- Journal of Bioinformatics and Computational Biology
+  - APC: none for subscription (traditional publishing)
+  - Impact Factor: ~1.0
+  - URL: https://www.worldscientific.com/worldscinet/jbcb
+
+- International Journal of Computational Bioscience
+  - Publisher: ACTA Press
+  - APC: $180 (Open Access)
+  - Not indexed in major databases (Scopus? Web of Science? Unlikely).
+  - Not recommended.
+
+- PCI Mathematical and Computational Biology (Peer Community In)
+  - APC: None
+  - Not a traditional journal – it is a "recommendation" platform.
+  - Articles are then published in partner journals (may charge APC).
+
+- Royal Society Open Science
+  - APC: £1,200 (not free). Waivers for low‑income countries.
+
+- G3: Genes, Genomes, Genetics
+  - APC: $2,580 (not free). Waivers for low‑income countries.
+
+================================================================================
+RECOMMENDED FREE OPTIONS FOR TMO MANUSCRIPT
+================================================================================
+
+For a no‑fee submission, your best bets are subscription‑based hybrid journals
+where you can choose not to pay APC by not opting for open access. However,
+you must check each journal’s policy: some require OA for all articles.
+
+Top choices (no APC for subscription):
+
+1. Nature
+2. Science
+3. Cell
+4. Nature Biotechnology
+5. Nature Methods
+6. Genome Research
+7. Bioinformatics
+8. Briefings in Bioinformatics
+9. Nucleic Acids Research
+10. Computational Biology and Chemistry
+
+All of these journals are indexed in Web of Science / Scopus, have high impact
+factors, and allow traditional (non‑OA) publication at no charge. Acceptance
+rates are low (7‑30%), but your work is strong enough to submit.
+
+================================================================================
+ALTERNATIVE: DIAMOND OPEN ACCESS JOURNALS (NO APC FOR ANYONE)
+================================================================================
+
+Some truly no‑fee open access journals exist, but they are rare in computational
+biology. Examples include:
+
+- Journal of Statistical Distributions and Applications (Springer – check)
+- Journal of Open Source Software (JOSS – for software papers)
+- Peer Community In (PCI) recommendations (not a journal, but a validation)
+
+None of these are ideal for your methods paper.
+
+================================================================================
+FINAL ADVICE
+================================================================================
+
+- For the highest impact, target **Nature Methods** or **Nature Biotechnology**.
+- For a more balanced approach, try **Bioinformatics** or **Genome Research**.
+- If you want to publish open access without fee, check if your institution has
+  a transformative agreement covering APCs (most major universities do).
+
+Check the journal’s specific policy before submission.
+================================================================================
