@@ -15,3 +15,9 @@ __pycache__/
 
 # Conda
 envs/
+
+# Manuscript Files
+Preprint.pdf
+Preprint_SuppMaterial.pdf
+TemporalMultiOmics.zip
+AI_context.txt
