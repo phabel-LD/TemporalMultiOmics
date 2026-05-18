@@ -98,9 +98,11 @@ def main():
     # --------------------------------------------------------------------
     # 3. Plot profiles
     # --------------------------------------------------------------------
-    fig, axes = plt.subplots(1, len(args.markers), figsize=(5*len(args.markers), 4), sharey=True)
+    fig, axes = plt.subplots(len(args.markers), 1, figsize=(10, 5*len(args.markers)), sharex=True, sharey=False)
     if len(args.markers) == 1:
         axes = [axes]
+    else:
+        axes = axes.flatten()
 
     for ax, gene in zip(axes, args.markers):
         if gene not in gene_to_comp:

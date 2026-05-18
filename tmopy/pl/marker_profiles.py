@@ -92,7 +92,7 @@ def plot_marker_profiles(
 
     # Plot
     n_markers = len(marker_genes)
-    fig, axes = plt.subplots(1, n_markers, figsize=(figsize_per_gene * n_markers, 4), sharey=True)
+    fig, axes = plt.subplots(n_markers, 1, figsize=(8, figsize_per_gene * n_markers), sharex=True, sharey=False)
     if n_markers == 1:
         axes = [axes]
 
