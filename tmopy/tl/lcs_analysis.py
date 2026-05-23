@@ -1,6 +1,28 @@
 """Compare LCS between asymmetric and symmetric models (scatter plots, bar chart).
 
-Now uses the corrected model class for both variants.
+This module provides a function that loads trained asymmetric and symmetric
+TMO models, computes the Lag Concordance Score (LCS) on the full dataset,
+and generates diagnostic plots that illustrate the quality of the learned
+regulatory lags.
+
+The LCS is the Spearman correlation between the per‑component mean
+predicted lags and the CCF‑derived target lags.  A high positive LCS
+indicates that the model correctly orders the components by their
+regulatory timing.
+
+Plots produced (saved to disk when ``save_plots`` is provided):
+    - Scatter plot of predicted vs CCF lags for the asymmetric model,
+      with a linear regression line.
+    - Scatter plot for the symmetric model (if provided).
+    - Bar chart comparing the LCS values of the two models.
+
+Important note:
+    The LCS reported here is computed on the full dataset and is meant
+    for qualitative visual inspection.  The official LCS values used in
+    the paper are recorded in the training metrics CSV files and represent
+    the model’s performance on the same data it was trained on (in‑set
+    diagnostic).  Independent biological validation is provided by the
+    ChIP‑seq and Perturb‑seq experiments.
 """
 
 import torch
@@ -25,16 +47,46 @@ def lcs_analysis(
     n_components: int = 50,
     save_plots: str = None,
 ):
-    """Compute LCS for asymmetric (and optionally symmetric) model and generate plots.
+    """Compute LCS for asymmetric (and optionally symmetric) models and generate plots.
 
-    Note: The LCS reported here is computed on the full dataset and is meant for
-    visual inspection only. The out‑of‑sample validation LCS used in the paper
-    is stored in the training metrics CSV files.
+    The function performs the following steps:
+        1. Normalise RNA and compute PCA/LSI projections on the full dataset.
+        2. Compute the CCF surface and extract the target lags.
+        3. Load the trained model(s) and predict per‑component mean lags.
+        4. Compute the Spearman correlation between predicted and target lags.
+        5. Optionally create scatter plots and a bar chart.
+
+    Parameters
+    ----------
+    adata : AnnData
+        Must contain ``.obs['pseudotime']`` and ``.obsm['ATAC_gene']``.
+    asym_model_path : str
+        Path to the trained asymmetric model checkpoint (``.pt``).
+    sym_model_path : str, optional
+        Path to the trained symmetric baseline model checkpoint.  If not
+        provided, only the asymmetric model is evaluated.
+    n_components : int, default=50
+        Number of PCA/LSI components.
+    save_plots : str, optional
+        If provided, save the generated plots using this string as a
+        prefix.  The files ``<save_plots>_lcs_scatter_asymmetric.png``,
+        ``<save_plots>_lcs_scatter_symmetric.png``, and
+        ``<save_plots>_lcs_comparison.png`` are created.
+
+    Returns
+    -------
+    dict
+        ``{'lcs_asym': float, 'lcs_sym': float or None}``
     """
+
+    # Ensure RNA is log‑normalised
     if 'log1p' not in adata.uns:
         sc.pp.normalize_total(adata, target_sum=1e4)
         sc.pp.log1p(adata)
 
+    # ----------------------------------------------------------------
+    # Latent projections (mirror those used during training)
+    # ----------------------------------------------------------------
     pca = PCA(n_components=n_components, random_state=42)
     rna_pca = pca.fit_transform(adata.X.toarray() if hasattr(adata.X, 'toarray') else adata.X)
 
@@ -44,7 +96,9 @@ def lcs_analysis(
     lsi = TruncatedSVD(n_components=n_components, random_state=42)
     atac_lsi = lsi.fit_transform(atac_tfidf)
 
-    # CCF target
+    # ----------------------------------------------------------------
+    # CCF surface -> target lags (last pseudotime window)
+    # ----------------------------------------------------------------
     atac_comp_T = atac_lsi.T
     rna_comp_T = rna_pca.T
     pt = adata.obs['pseudotime'].values
@@ -60,10 +114,13 @@ def lcs_analysis(
         bootstrap_samples=0,
     )
     delta_tau_smooth, _ = smooth_delta_tau_surface(window_centers, delta_tau_raw, return_uncertainty=True)
-    ccf_lag = delta_tau_smooth[:, -1]
+    ccf_lag = delta_tau_smooth[:, -1] # target: last window
 
     device = torch.device("cpu")
 
+    # ----------------------------------------------------------------
+    # Helper to load a model and obtain per‑component mean lags
+    # ----------------------------------------------------------------
     def get_model_lcs(model_path, use_bias):
         model = TMOLatentModelAsymmetric(
             n_rna_components=n_components,
@@ -82,17 +139,22 @@ def lcs_analysis(
         lcs = spearmanr(pred_lags[valid], ccf_lag[valid])[0]
         return lcs, pred_lags
 
+    # Evaluate asymmetric model
     lcs_asym, pred_asym = get_model_lcs(asym_model_path, use_bias=True)
     print(f"Asymmetric LCS (full data) = {lcs_asym:.4f}")
 
+    # Evaluate symmetric model (if provided)
     lcs_sym = None
     pred_sym = None
     if sym_model_path:
         lcs_sym, pred_sym = get_model_lcs(sym_model_path, use_bias=False)
         print(f"Symmetric LCS (full data) = {lcs_sym:.4f}")
 
+    # ----------------------------------------------------------------
+    # Generate diagnostic plots
+    # ----------------------------------------------------------------
     if save_plots:
-        # Scatter plot for asymmetric
+        # --- Asymmetric scatter ---
         fig, ax = plt.subplots(figsize=(6,6))
         ax.scatter(ccf_lag, pred_asym, alpha=0.7)
         m, b = np.polyfit(ccf_lag, pred_asym, 1)
@@ -104,6 +166,7 @@ def lcs_analysis(
         plt.savefig(f"{save_plots}_lcs_scatter_asymmetric.png", dpi=150)
         plt.close()
 
+        # --- Symmetric scatter (if available) ---
         if pred_sym is not None:
             fig, ax = plt.subplots(figsize=(6,6))
             ax.scatter(ccf_lag, pred_sym, alpha=0.7, color='orange')
@@ -116,7 +179,7 @@ def lcs_analysis(
             plt.savefig(f"{save_plots}_lcs_scatter_symmetric.png", dpi=150)
             plt.close()
 
-        # Bar chart
+        # --- Bar chart ---
         models = ['Asymmetric']
         values = [lcs_asym]
         if lcs_sym is not None:

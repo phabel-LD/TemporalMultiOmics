@@ -1,9 +1,22 @@
-"""Gaussian process smoothing for Δτ surface.
+"""Gaussian process smoothing for the regulatory lag (Δτ) surface.
 
 Provides functions to interpolate and smooth the signed lag surface Δτ_g(τ)
 obtained from local CCF estimation. Uses Gaussian Process regression with
 Matern-3/2 kernel to handle sparse windows and produce uncertainty estimates
 (posterior variance) which are used downstream for inverse-variance weighting.
+
+The raw Δτ surface obtained from local cross‑correlation can be noisy or
+sparse (some windows may contain too few cells to estimate a reliable lag).
+This module uses Gaussian Process (GP) regression with a Matern‑3/2 kernel
+to:
+
+  - interpolate missing values across pseudotime,
+  - produce a smooth, continuous estimate of Δτ(τ) for each gene,
+  - provide posterior uncertainty estimates (standard deviation) that can
+    be used as inverse‑variance weights in downstream training.
+
+A minimum of three observed points is required to fit a GP; genes with
+fewer valid windows are left as NaN.
 """
 
 import numpy as np
@@ -51,8 +64,10 @@ def smooth_delta_tau_surface(
         Posterior standard deviation (if return_uncertainty=True), else None.
     """
     n_genes, n_win = delta_tau_matrix.shape
+
     # Identify windows with valid observations (non-NaN)
     valid_mask = ~np.isnan(delta_tau_matrix)
+
     # For each gene, extract valid points
     smoothed = np.full_like(delta_tau_matrix, np.nan)
     if return_uncertainty:
@@ -60,18 +75,28 @@ def smooth_delta_tau_surface(
     else:
         unc = None
 
+    # Fit a GP independently for each gene.
     for g in range(n_genes):
         valid_idx = valid_mask[g, :]
+        # A meaningful GP requires at least three points.
         if np.sum(valid_idx) < 3:
             # Not enough points: keep NaN
             continue
+
         X_train = pseudotime_grid[valid_idx].reshape(-1, 1)
         y_train = delta_tau_matrix[g, valid_idx]
 
-        # Define kernel: Matern-3/2 + WhiteKernel for noise
-        kernel = Matern(length_scale=0.1, nu=1.5, length_scale_bounds=length_scale_bounds) \
-                 + WhiteKernel(noise_level=0.01, noise_level_bounds=noise_level_bounds)
-        gp = GaussianProcessRegressor(kernel=kernel, alpha=0.0, normalize_y=True, random_state=42)
+        # Kernel: Matern‑3/2 (provides a smooth yet flexible fit) plus a
+        # white‑noise component that absorbs observational scatter.
+        kernel = Matern(length_scale=0.1,
+                        nu=1.5,
+                        length_scale_bounds=length_scale_bounds) \
+                 + WhiteKernel(noise_level=0.01,
+                               noise_level_bounds=noise_level_bounds)
+        gp = GaussianProcessRegressor(kernel=kernel,
+                                      alpha=0.0, # no additional data‑level noise beyond the kernel
+                                      normalize_y=True, # centre the target values before fitting
+                                      random_state=42)
         gp.fit(X_train, y_train)
 
         # Predict at all pseudotime grid points
@@ -88,21 +113,27 @@ def smooth_delta_tau_surface(
 
 
 def estimate_uncertainty_weights(uncertainty: np.ndarray, eps: float = 1e-6) -> np.ndarray:
-    """Compute inverse-variance weights from GP uncertainty.
+    """Compute inverse-variance weights from GP uncertainty (posterior standard deviations).
 
     Used for weighting the LagMLP loss: w_{g,c} = 1 / (var + eps).
+
+    These weights can be used to down‑weight contributions from genes or
+    pseudotime windows where the GP fit is highly uncertain.  The formula
+    is `w = 1 / (var + eps)`, where var is the squared standard deviation (sd^2)
+    (the posterior variance).
 
     Parameters
     ----------
     uncertainty : np.ndarray, shape (n_genes, n_cells)
         Posterior standard deviation from GP (or any error estimate).
     eps : float, default=1e-6
-        Small constant to avoid division by zero.
+        Small constant to avoid division by zero (when sd = 0).
 
     Returns
     -------
     weights : np.ndarray, shape (n_genes, n_cells)
         Inverse-variance weights (larger where uncertainty is small).
+        Larger values correspond to lower uncertainty.
     """
     variance = uncertainty ** 2
     weights = 1.0 / (variance + eps)

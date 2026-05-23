@@ -94,6 +94,7 @@ def compute_palantir_pseudotime(
         num_waypoints=min(500, adata.n_obs),
     )
     adata.obs['palantir_pseudotime'] = pt['pseudotime']
+    
     # Normalize
     pt_vals = adata.obs['palantir_pseudotime'].values
     pt_vals = (pt_vals - pt_vals.min()) / (pt_vals.max() - pt_vals.min())

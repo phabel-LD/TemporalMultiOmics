@@ -1,9 +1,19 @@
 """Callbacks for TMO training.
 
-Provides:
-    - LoggerCallback: logs metrics to console and optionally to TensorBoard/WandB.
-    - LCSValidator: computes Lag Concordance Score on validation data at specified intervals.
-    - CheckpointCallback: saves model checkpoints based on best validation LCS.
+This module provides optional callback classes that can be used during
+training to log metrics, compute validation scores, and save model
+checkpoints.  They were designed for the original multi‑phase training
+pipeline but are not required by the final single‑script training
+procedure.  They are kept here as a reference and may be useful in future
+extensions that require more complex training orchestration.
+
+Provided callbacks:
+    - ``LoggerCallback`` : prints metrics to the console and optionally
+      logs them to TensorBoard or Weights & Biases.
+    - ``LCSValidator`` : periodically evaluates the Lag Concordance
+      Score (LCS) on a held‑out validation set.
+    - ``CheckpointCallback`` : saves model checkpoints when a monitored
+      metric improves.
 """
 
 import logging
@@ -17,7 +27,25 @@ logger = logging.getLogger(__name__)
 
 
 class LoggerCallback:
-    """Logs training metrics to console and optional experiment trackers."""
+    """Logs training metrics to the console and optional experiment trackers.
+
+    This callback is called after each training step (``on_train_step``)
+    and after each validation run (``on_validation``).  It prints a
+    formatted message to the standard Python logger and, if configured,
+    writes scalar values to TensorBoard or Weights & Biases.
+
+    Parameters
+    ----------
+    log_interval : int, default=10
+        Number of training steps between log outputs.
+    use_tensorboard : bool, default=False
+        If True, use a ``SummaryWriter`` to log to TensorBoard.
+    tensorboard_writer : optional
+        An instance of ``torch.utils.tensorboard.SummaryWriter``.
+    use_wandb : bool, default=False
+        If True, use Weights & Biases for logging.  Requires ``wandb`` to
+        be installed and initialized.
+    """
 
     def __init__(
         self,
@@ -26,18 +54,6 @@ class LoggerCallback:
         tensorboard_writer: Optional[Any] = None,
         use_wandb: bool = False,
     ):
-        """
-        Parameters
-        ----------
-        log_interval : int, default=10
-            Number of steps between logging.
-        use_tensorboard : bool, default=False
-            Whether to log to TensorBoard.
-        tensorboard_writer : optional
-            TensorBoard SummaryWriter instance.
-        use_wandb : bool, default=False
-            Whether to log to Weights & Biases.
-        """
         self.log_interval = log_interval
         self.use_tensorboard = use_tensorboard
         self.tensorboard_writer = tensorboard_writer
@@ -45,22 +61,43 @@ class LoggerCallback:
         self.step = 0
 
     def on_train_step(self, step: int, metrics: Dict[str, float]):
-        """Called after each training step."""
+        """Called after each training step.
+
+        Parameters
+        ----------
+        step : int
+            Current training step (global step counter).
+        metrics : dict
+            Dictionary of metric names and their current values.
+        """
+
         self.step = step
         if step % self.log_interval == 0:
+            # Build a console message
             log_msg = f"Step {step}: " + ", ".join([f"{k}={v:.4f}" for k, v in metrics.items()])
             logger.info(log_msg)
 
+            # Optionally: write to TensorBoard
             if self.use_tensorboard and self.tensorboard_writer:
                 for k, v in metrics.items():
                     self.tensorboard_writer.add_scalar(f"train/{k}", v, step)
 
+            # Optionally: write to Weights & Biases
             if self.use_wandb:
                 import wandb
                 wandb.log({f"train/{k}": v for k, v in metrics.items()}, step=step)
 
     def on_validation(self, step: int, metrics: Dict[str, float]):
-        """Called after validation."""
+        """Called after a validation run.
+
+        Parameters
+        ----------
+        step : int
+            Current training step.
+        metrics : dict
+            Validation metrics.
+        """
+
         log_msg = f"Validation at step {step}: " + ", ".join([f"{k}={v:.4f}" for k, v in metrics.items()])
         logger.info(log_msg)
 
@@ -74,10 +111,29 @@ class LoggerCallback:
 
 
 class LCSValidator:
-    """Computes Lag Concordance Score (LCS) on validation data.
+    """Periodically computes the Lag Concordance Score (LCS) on a validation set.
 
-    LCS = Spearman correlation between learned Δτ̂_g (per gene) and
-    CCF-derived Δτ_g^CCF for a held-out set of genes or cells.
+    LCS is the Spearman correlation between the model's predicted per‑gene
+    lags and the CCF‑derived target lags.  This validator is intended for
+    use with the older ``TMOModel`` that operates on raw gene identifiers.
+
+    Because the final pipeline uses a latent‑space model and computes LCS
+    directly in the training loop (on the full dataset), this class is
+    **not** used in the current workflow.  It is preserved for completeness.
+
+    Parameters
+    ----------
+    model : torch.nn.Module
+        The TMO model.  Must implement ``forward_phase_b`` or
+        ``forward_phase_c``.
+    device : torch.device
+        Device for computation.
+    val_dataloader : DataLoader
+        DataLoader for the validation set.
+    ccf_prior_dict : dict
+        Mapping from gene ID (int) to the CCF‑derived Δτ target (float).
+    val_interval : int, default=500
+        Number of training steps between LCS evaluations.
     """
 
     def __init__(
@@ -88,20 +144,6 @@ class LCSValidator:
         ccf_prior_dict: Dict[int, float],   # gene_id -> CCF delta_tau prior
         val_interval: int = 500,
     ):
-        """
-        Parameters
-        ----------
-        model : torch.nn.Module
-            TMO model (must have forward_phase_b or forward_phase_c to get predictions).
-        device : torch.device
-            Device for computation.
-        val_dataloader : DataLoader
-            Validation data loader.
-        ccf_prior_dict : dict
-            Mapping from gene ID (int) to CCF-derived Δτ_g^CCF (float).
-        val_interval : int, default=500
-            Number of training steps between LCS evaluations.
-        """
         self.model = model
         self.device = device
         self.val_dataloader = val_dataloader
@@ -111,30 +153,33 @@ class LCSValidator:
         self.best_step = 0
 
     def compute_lcs(self, step: int, phase: str = 'phase_b') -> Optional[float]:
-        """Compute LCS on validation data.
+        """Compute LCS on the validation data.
 
         Parameters
         ----------
         step : int
-            Current training step.
+            Current training step (for logging only).
         phase : str, default='phase_b'
-            Which model forward to use ('phase_b' or 'phase_c').
+            Which model forward method to use; must be ``'phase_b'`` or
+            ``'phase_c'``.
 
         Returns
         -------
         lcs : float or None
-            Spearman correlation, or None if no valid predictions.
+            Spearman correlation, or None if fewer than two genes have
+            valid targets.
         """
+
         self.model.eval()
         all_pred_lags = []
         all_target_lags = []
 
         with torch.no_grad():
             for batch in self.val_dataloader:
-                # Move to device
+                # Transfer batch tensors to the correct device
                 batch = {k: v.to(self.device) for k, v in batch.items() if torch.is_tensor(v)}
 
-                # Get predicted lags per gene (Phase B or C)
+                # Obtain predicted lags using the specified phase
                 if phase == 'phase_b':
                     outputs = self.model.forward_phase_b(
                         atac_ids=batch['atac_ids'],
@@ -161,10 +206,11 @@ class LCSValidator:
                     )
                     delta_tau_pred = outputs['delta_tau']
 
-                # Average predictions per gene over cells
+                # Flatten and average per gene across all cells in the batch
                 rna_ids = batch['rna_ids']  # (batch, seq_len_rna)
                 flat_genes = rna_ids.flatten()
                 flat_pred = delta_tau_pred.flatten()
+
                 # Gather unique genes and average
                 unique_genes = torch.unique(flat_genes)
                 for g in unique_genes:
@@ -189,12 +235,44 @@ class LCSValidator:
         return corr
 
     def should_validate(self, step: int, last_val_step: int) -> bool:
-        """Check if validation should be performed."""
+        """Check if a validation run should be performed.
+
+        Parameters
+        ----------
+        step : int
+            Current training step.
+        last_val_step : int
+            Step at which the last validation was performed.
+
+        Returns
+        -------
+        bool
+            True if ``step - last_val_step >= self.val_interval``.
+        """
         return (step - last_val_step) >= self.val_interval
 
 
 class CheckpointCallback:
-    """Saves model checkpoints based on best validation LCS."""
+    """Saves model checkpoints based on the best validation metric.
+
+    This callback is called after validation.  It can save:
+        - the best model seen so far (when ``save_best_only`` is True),
+        - a periodic checkpoint every N steps (optional).
+
+    The metric to maximise (or minimise) is passed to ``on_validation``.
+
+    Parameters
+    ----------
+    checkpoint_dir : Path
+        Directory where checkpoints will be saved.  Created if needed.
+    save_best_only : bool, default=True
+        If True, only save a checkpoint when the monitored metric improves.
+    save_every_n_steps : int, optional
+        If provided, a checkpoint is saved every N steps regardless of
+        metric improvement.
+    maximize : bool, default=True
+        If True, a higher metric is considered better (suitable for LCS).
+    """
 
     def __init__(
         self,
@@ -203,18 +281,6 @@ class CheckpointCallback:
         save_every_n_steps: Optional[int] = None,
         maximize: bool = True,
     ):
-        """
-        Parameters
-        ----------
-        checkpoint_dir : Path
-            Directory to save checkpoints.
-        save_best_only : bool, default=True
-            Only save when validation metric improves.
-        save_every_n_steps : int, optional
-            If provided, save a checkpoint every N steps regardless of metric.
-        maximize : bool, default=True
-            Whether higher validation metric is better (True for LCS).
-        """
         self.checkpoint_dir = Path(checkpoint_dir)
         self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
         self.save_best_only = save_best_only
@@ -229,18 +295,28 @@ class CheckpointCallback:
         optimizer: torch.optim.Optimizer,
         metric: Optional[float] = None,
     ):
-        """Called after validation.
+        """Called after each validation run.
 
-        Saves checkpoint if metric improves (when save_best_only=True) or
-        every N steps.
+        Parameters
+        ----------
+        step : int
+            Current training step.
+        model : torch.nn.Module
+            The model whose parameters are to be saved.
+        optimizer : torch.optim.Optimizer
+            The optimizer whose state is saved together with the model.
+        metric : float, optional
+            The validation metric value.  If provided and ``save_best_only``
+            is True, a checkpoint is saved when this metric improves.
         """
-        # Save periodic checkpoint if requested
+
+        # Save periodic checkpoint (if requested)
         if self.save_every_n_steps and step % self.save_every_n_steps == 0:
             path = self.checkpoint_dir / f"checkpoint_step_{step}.pt"
             self._save_checkpoint(path, step, model, optimizer)
             logger.info(f"Periodic checkpoint saved to {path}")
 
-        # Save best checkpoint
+        # Save best‑metric checkpoint
         if metric is not None and self.save_best_only:
             improved = (self.maximize and metric > self.best_metric) or \
                        (not self.maximize and metric < self.best_metric)
@@ -258,6 +334,23 @@ class CheckpointCallback:
         optimizer: torch.optim.Optimizer,
         additional: Optional[Dict] = None,
     ):
+        """Internal helper that writes a checkpoint to disk.
+
+        The checkpoint contains the model and optimizer state dictionaries,
+        the current step, and any additional information.
+
+        Parameters
+        ----------
+        path : Path
+            Output file path.
+        step : int
+            Current training step.
+        model : torch.nn.Module
+        optimizer : torch.optim.Optimizer
+        additional : dict, optional
+            Extra data to include in the checkpoint.
+        """
+        
         checkpoint = {
             'step': step,
             'model_state_dict': model.state_dict(),
