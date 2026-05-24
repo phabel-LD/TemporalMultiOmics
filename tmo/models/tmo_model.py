@@ -226,7 +226,9 @@ class TMOLatentModelAsymmetric(nn.Module):
             sigma_sq_rna_to_atac=None)
 
         # Cell embedding: mean over the ATAC token axis.
-        cell_emb = atac_enc1.mean(dim=1)                 # not detached, (batch, d_model)
+        cell_emb = atac_enc1.mean(dim=1) # not detached, (batch, d_model)
+        if getattr(self, 'ablate_cell_state', False):
+            cell_emb = torch.zeros_like(cell_emb)
         # RNA reconstruction from the first pass (used for monitoring).
         rna_pred_pass1 = self.rna_decoder(rna_enc1).squeeze(-1)
 

@@ -342,6 +342,7 @@ Key points:
 - The main‑paper figures use human Mouse Kidney as the primary exemplar (high LCS and strong ChIP‑seq signal); equivalent figures for the other three datasets are provided as supplementary material.
 - **Perturb‑seq causal validation:**cSMARCB1 knockout (1,144 NTC, 147 perturbed): directional trend, target δΔτ 0.0003 vs. background 0.0002, one‑sided p = 0.056. SMARCE1 knockout (25,125 NTC, 3,394 perturbed): significant shift, one‑sided p = 0.0089.
 - **Generalisation (held‑out LCS):** When trained on an 80% stratified split and evaluated on the held‑out 20% using the training‑set CCF target, TMO retains high LCS: PBMC 0.9885, mouse brain 0.9484, human brain 0.8483, mouse kidney 0.9369, confirming that the learned component‑lag ordering transfers to unseen cells of the same tissue.
+- - **Cell‑state ablation:** Removing cell‑state information from the LagMLP causes a consistent drop in LCS (e.g. 0.9984->0.7136 in mouse kidney) and collapses per‑component temporal dynamics (KS p < 10^-18 in three of four tissues), proving that TMO's dynamic lag patterns depend on cell‑state conditioning.
 - Training time ~10‑20 min on CPU for ~3000–5000 cells.
 
 ================================================================================

@@ -48,6 +48,8 @@ def main():
                         help="Enable windowed sparse attention for large datasets")
     parser.add_argument("--symmetric", action="store_true",
                         help="Train symmetric baseline (no attention bias)")
+    parser.add_argument("--ablate_cell_state", action="store_true",
+                        help="Zero out the cell embedding before the LagMLP (cell‑state ablation)")
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir)
@@ -158,6 +160,7 @@ def main():
     # -------------------------------------------------------------
     # 5. Training loop
     # -------------------------------------------------------------
+    model.ablate_cell_state = args.ablate_cell_state
     lcs_history = []
 
     for epoch in range(args.epochs):

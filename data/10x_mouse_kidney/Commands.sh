@@ -77,3 +77,14 @@ python 3_split_train_test.py --data_path "../data/10x_mouse_kidney/mouse_kidney_
 python 3_train_tmo_asymmetric.py --data_path "../data/10x_mouse_kidney/mk_train.h5ad" --output_dir "../results/tmo_results_mouse_kidney_train" --epochs 50 --val_interval 5 --lambda_lag 0.1
 # 3. Held‑out LCS
 python 4_compute_heldout_lcs.py --data_path "../data/10x_mouse_kidney/mk_test.h5ad" --model_path "../results/tmo_results_mouse_kidney_train/tmo_asymmetric_best.pt" --pca_path "../results/tmo_results_mouse_kidney_train/pca.pkl" --tfidf_path "../results/tmo_results_mouse_kidney_train/tfidf.pkl" --lsi_path "../results/tmo_results_mouse_kidney_train/lsi.pkl" --target_path "../results/tmo_results_mouse_kidney_train/ccf_target.pkl"
+
+
+# ----------------------------------------------------------------------
+# 14. Compare Models' Slopes
+# ----------------------------------------------------------------------
+# 1. Ablated model (--ablate_cell_state)
+python 3_train_tmo_asymmetric.py --data_path "../data/10x_pbmc/pbmc_gene_level_tmo_ready.h5ad" --output_dir "../results/tmo_results_pbmc_ablation" --epochs 50 --val_interval 5 --lambda_lag 0.1 --ablate_cell_state
+# 2. Evaluate LCS -> Drop
+python 4_evaluate_asymmetric.py --data_path "../data/10x_pbmc/pbmc_gene_level_tmo_ready.h5ad" --model_path "../results/tmo_results_pbmc_ablation/tmo_asymmetric_best.pt" --output_dir "../results/tmo_results_pbmc_ablation" --annotation_mode cluster_aggregate --dist_threshold 1.0 --standardize
+# 3. Compare Models' Slopes
+python 5_ablation_slopes.py --data_path "../data/10x_mouse_kidney/mouse_kidney_gene_level_tmo_ready.h5ad" --full_model "../results/tmo_results_mouse_kidney_cmmd/tmo_asymmetric_best.pt" --ablated_model "../results/tmo_results_mouse_kidney_ablation/tmo_asymmetric_best.pt" --full_pca "../results/tmo_results_mouse_kidney_cmmd/pca.pkl" --full_tfidf "../results/tmo_results_mouse_kidney_cmmd/tfidf.pkl" --full_lsi "../results/tmo_results_mouse_kidney_cmmd/lsi.pkl" --ablated_pca "../results/tmo_results_mouse_kidney_ablation/pca.pkl" --ablated_tfidf "../results/tmo_results_mouse_kidney_ablation/tfidf.pkl" --ablated_lsi "../results/tmo_results_mouse_kidney_ablation/lsi.pkl" --output "../results/tmo_results_mouse_kidney_cmmd/ablation_slopes.pdf"

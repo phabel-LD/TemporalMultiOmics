@@ -76,3 +76,14 @@ python 3_train_tmo_asymmetric.py --data_path "../data/10x_pbmc/pbmc_train.h5ad" 
 # 3. Held‑out LCS
 python 4_compute_heldout_lcs.py --data_path "../data/10x_pbmc/pbmc_test.h5ad" --model_path "../results/tmo_results_pbmc_train/tmo_asymmetric_best.pt" --pca_path "../results/tmo_results_pbmc_train/pca.pkl" --tfidf_path "../results/tmo_results_pbmc_train/tfidf.pkl" --lsi_path "../results/tmo_results_pbmc_train/lsi.pkl" --target_path "../results/tmo_results_pbmc_train/ccf_target.pkl"
 
+
+# ----------------------------------------------------------------------
+# 14. Compare Models' Slopes
+# ----------------------------------------------------------------------
+# 1. Ablated model (--ablate_cell_state)
+python 3_train_tmo_asymmetric.py --data_path "../data/10x_pbmc/pbmc_gene_level_tmo_ready.h5ad" --output_dir "../results/tmo_results_pbmc_ablation" --epochs 50 --val_interval 5 --lambda_lag 0.1 --ablate_cell_state
+# 2. Evaluate LCS -> Drop
+python 4_evaluate_asymmetric.py --data_path "../data/10x_pbmc/pbmc_gene_level_tmo_ready.h5ad" --model_path "../results/tmo_results_pbmc_ablation/tmo_asymmetric_best.pt" --output_dir "../results/tmo_results_pbmc_ablation" --annotation_mode cluster_aggregate --dist_threshold 1.0 --standardize
+# 3. Compare Models' Slopes
+python 5_ablation_slopes.py --data_path "../data/10x_pbmc/pbmc_gene_level_tmo_ready.h5ad" --full_model "../results/tmo_results_pbmc_cmmd/tmo_asymmetric_best.pt" --ablated_model "../results/tmo_results_pbmc_ablation/tmo_asymmetric_best.pt" --full_pca "../results/tmo_results_pbmc_cmmd/pca.pkl" --full_tfidf "../results/tmo_results_pbmc_cmmd/tfidf.pkl" --full_lsi "../results/tmo_results_pbmc_cmmd/lsi.pkl" --ablated_pca "../results/tmo_results_pbmc_ablation/pca.pkl" --ablated_tfidf "../results/tmo_results_pbmc_ablation/tfidf.pkl" --ablated_lsi "../results/tmo_results_pbmc_ablation/lsi.pkl" --output "../results/tmo_results_pbmc_cmmd/ablation_slopes.pdf"
+
