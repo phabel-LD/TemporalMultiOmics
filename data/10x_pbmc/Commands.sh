@@ -65,3 +65,14 @@ python 10_validate_multigene.py --data_path "../data/10x_pbmc/multip_seq_combine
 # 12. ChIP‑seq validation (top 500 PAX5 targets)
 # ----------------------------------------------------------------------
 python 11_chipseq_validation.py --data_path "../data/10x_pbmc/pbmc_gene_level_tmo_ready.h5ad" --model_path "../results/tmo_results_pbmc_cmmd/tmo_asymmetric_best.pt" --target_genes_file "../data/10x_pbmc/PAX5_top500_genes.txt" --output_dir "../results/tmo_results_pbmc_cmmd"
+
+# ----------------------------------------------------------------------
+# 13. Held‑out LCS (training target): 80/20 Training-Test Validation
+# ----------------------------------------------------------------------
+# 1. Split
+python 3_split_train_test.py --data_path "../data/10x_pbmc/pbmc_gene_level_tmo_ready.h5ad" --output_train "../data/10x_pbmc/pbmc_train.h5ad" --output_test "../data/10x_pbmc/pbmc_test.h5ad"
+# 2. Train on training set
+python 3_train_tmo_asymmetric.py --data_path "../data/10x_pbmc/pbmc_train.h5ad" --output_dir "../results/tmo_results_pbmc_train" --epochs 50 --val_interval 5 --lambda_lag 0.1
+# 3. Held‑out LCS
+python 4_compute_heldout_lcs.py --data_path "../data/10x_pbmc/pbmc_test.h5ad" --model_path "../results/tmo_results_pbmc_train/tmo_asymmetric_best.pt" --pca_path "../results/tmo_results_pbmc_train/pca.pkl" --tfidf_path "../results/tmo_results_pbmc_train/tfidf.pkl" --lsi_path "../results/tmo_results_pbmc_train/lsi.pkl" --target_path "../results/tmo_results_pbmc_train/ccf_target.pkl"
+

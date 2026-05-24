@@ -119,6 +119,10 @@ def main():
         ccf_target = -ccf_target
 
     ccf_target_t = torch.tensor(ccf_target, dtype=torch.float32)
+    # Save the training CCF target for held‑out evaluation
+    with open(output_dir / "ccf_target.pkl", "wb") as f:
+        pickle.dump(ccf_target, f)
+
     valid_mask = ~torch.isnan(ccf_target_t)
 
     # -------------------------------------------------------------

@@ -337,21 +337,11 @@ All outputs are written to `./tmo_results/`.
 | Mouse kidney  | 0.9984   | 0.0477  | Hnf4a       | 1.98×10⁻⁴  | −0.0056        | −0.0044         |
 
 Key points:
-- Asymmetric LCS (in‑set, full dataset) is >0.98 for all four tissues;
-  the symmetric baseline (identical architecture, no attention bias, no lag
-  loss) yields LCS <0.11 (effectively zero).  This confirms that the
-  asymmetric attention bias is essential for learning regulatory lags.
-- The ChIP‑seq validation uses a **deterministic, two‑sided Mann‑Whitney U
-  test** against the full set of eligible background genes (all non‑target
-  genes, optionally expression‑matched).  No random subsampling is performed.
-  All four transcription factors show highly significant differences.
-- The main‑paper figures use human PBMC as the primary exemplar (highest
-  LCS and strongest ChIP‑seq signal); equivalent figures for the other
-  three datasets are provided as supplementary material.
-- **Perturb‑seq causal validation:**cSMARCB1 knockout (1,144 NTC, 147 perturbed):
-  directional trend, target δΔτ 0.0003 vs. background 0.0002, one‑sided p = 0.056.
-  SMARCE1 knockout (25,125 NTC, 3,394 perturbed): significant shift,
-  one‑sided p = 0.0089.
+- **Asymmetric LCS** (in‑set, full dataset) is >0.98 for all four tissues; the symmetric baseline (identical architecture, no attention bias, no lag loss) yields LCS <0.11 (effectively zero). This confirms that the asymmetric attention bias is essential for learning regulatory lags.
+- The ChIP‑seq validation uses a **deterministic, two‑sided Mann‑Whitney U test** against the full set of eligible background genes (all non‑target genes, optionally expression‑matched).  No random subsampling is performed. All four transcription factors show highly significant differences.
+- The main‑paper figures use human Mouse Kidney as the primary exemplar (high LCS and strong ChIP‑seq signal); equivalent figures for the other three datasets are provided as supplementary material.
+- **Perturb‑seq causal validation:**cSMARCB1 knockout (1,144 NTC, 147 perturbed): directional trend, target δΔτ 0.0003 vs. background 0.0002, one‑sided p = 0.056. SMARCE1 knockout (25,125 NTC, 3,394 perturbed): significant shift, one‑sided p = 0.0089.
+- **Generalisation (held‑out LCS):** When trained on an 80% stratified split and evaluated on the held‑out 20% using the training‑set CCF target, TMO retains high LCS: PBMC 0.9885, mouse brain 0.9484, human brain 0.8483, mouse kidney 0.9369, confirming that the learned component‑lag ordering transfers to unseen cells of the same tissue.
 - Training time ~10‑20 min on CPU for ~3000–5000 cells.
 
 ================================================================================

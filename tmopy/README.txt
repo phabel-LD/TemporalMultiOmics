@@ -216,7 +216,17 @@ tmo.pl.plot_violin_validation(ch_res['target_lags'],
 All asymmetric LCS values are > 0.98, while the symmetric baseline remains
 near zero (< 0.11).  ChIP‑seq validations are fully deterministic (full
 background, two‑sided Mann‑Whitney U) and all highly significant.
-**Perturb‑seq causal validation:** SMARCB1 knockout (1,144 NTC, 147 perturbed): directional trend, target δΔτ 0.0003 vs. background 0.0002, one‑sided p = 0.056. SMARCE1 knockout (25,125 NTC, 3,394 perturbed): significant shift, one‑sided p = 0.0089.
+
+**Perturb‑seq causal validation:** SMARCB1 knockout (1,144 NTC, 147 perturbed):
+directional trend, target δΔτ 0.0003 vs. background 0.0002,
+one‑sided p = 0.056. SMARCE1 knockout (25,125 NTC, 3,394 perturbed):
+significant shift, one‑sided p = 0.0089.
+
+- **Generalization (held‑out LCS):** When trained on an 80% stratified split
+and evaluated on the held‑out 20% using the training‑set CCF target,
+TMO retains high LCS: PBMC 0.9885, mouse brain 0.9484, human brain 0.8483,
+mouse kidney 0.9369, confirming that the learned component‑lag ordering
+transfers to unseen cells of the same tissue.
 
 ================================================================================
 8. Dependencies
