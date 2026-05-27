@@ -202,6 +202,15 @@ tmo.pl.plot_violin_validation(ch_res['target_lags'],
      title=f"PAX5 ChIP‑seq (p={ch_res['p_value']:.2e})",
      save="fig4_chipseq.pdf")
 
+# 7. Reproducing the paper's validation experiments
+
+The scripts for the held‑out generalisation test (80/20 split, held‑out LCS) and the cell‑state ablation (slope analysis, KS test) are provided in the `scripts/` directory.  They are not part of the core `tmopy` API because they rely on standard scikit‑learn operations and are specific to the paper's
+validation pipeline.  To reproduce these experiments, run:
+
+- `scripts/3_split_train_test.py` — stratified 80/20 split
+- `scripts/4_compute_heldout_lcs.py` — held‑out LCS evaluation
+- `scripts/5_ablation_slopes.py` — per‑component slope analysis and KS test
+
 ================================================================================
 7. Final results (four benchmark datasets)
 ================================================================================
