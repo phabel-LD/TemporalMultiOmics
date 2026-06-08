@@ -338,17 +338,18 @@ validation pipeline.  To reproduce these experiments, run:
 5. FINAL RESULTS ON FOUR BENCHMARK DATASETS  (fully reproducible)
 ================================================================================
 
-| Dataset       | Asym LCS | Sym LCS | ChIP‑seq TF | p‑value    | Target Δτ mean | Backgr. Δτ mean |
-|---------------|----------|---------|-------------|------------|----------------|-----------------|
-| Human PBMC    | 0.9990   | 0.1018  | PAX5        | 3.00×10⁻²³ |  0.0146        |  0.0106         |
-| Mouse brain   | 0.9920   | 0.1080  | Pax6        | 2.38×10⁻¹⁸ | −0.0206        | −0.0158         |
-| Human brain   | 0.9877   | 0.0841  | ASCL1       | 1.02×10⁻³  |  0.0167        |  0.0150         |
-| Mouse kidney  | 0.9984   | 0.0477  | Hnf4a       | 1.98×10⁻⁴  | −0.0056        | −0.0044         |
+| Dataset       | Asym LCS | Sym LCS | ChIP‑seq TF | TMO p‑value | Gene‑level CCF p | Variance ratio |
+|---------------|----------|---------|-------------|-------------|------------------|----------------|
+| Human PBMC    | 0.9990   | 0.1018  | PAX5        | 3.00×10⁻²³ | 6.3×10⁻⁴⁰       | 3.80           |
+| Mouse brain   | 0.9920   | 0.1080  | Pax6        | 2.38×10⁻¹⁸ | 2.9×10⁻³⁸       | 4.67           |
+| Human brain   | 0.9877   | 0.0841  | ASCL1       | 1.02×10⁻³  | 8.3×10⁻¹¹       | 4.19           |
+| Mouse kidney  | 0.9984   | 0.0477  | Hnf4a       | 1.98×10⁻⁴  | 1.1×10⁻¹⁴       | 3.68           |
 
 Key points:
 - **Asymmetric LCS** (in‑set, full dataset) is >0.98 for all four tissues; the symmetric baseline (identical architecture, no attention bias, no lag loss) yields LCS <0.11 (effectively zero). This confirms that the asymmetric attention bias is essential for learning regulatory lags.
 - The ChIP‑seq validation uses a **deterministic, two‑sided Mann‑Whitney U test** against the full set of eligible background genes (all non‑target genes, optionally expression‑matched).  No random subsampling is performed. All four transcription factors show highly significant differences.
 - The main‑paper figures use human Mouse Kidney as the primary exemplar (high LCS and strong ChIP‑seq signal); equivalent figures for the other three datasets are provided as supplementary material.
+- **Biphasic regulatory lag reversal** – statistically significant sign‑reversing Δτ profiles were identified in every tissue (permutation p < 0.05; Supplementary Table ST5), a dynamic inaccessible to scalar lag methods.
 - **Perturb‑seq causal validation:**cSMARCB1 knockout (1,144 NTC, 147 perturbed): directional trend, target δΔτ 0.0003 vs. background 0.0002, one‑sided p = 0.056. SMARCE1 knockout (25,125 NTC, 3,394 perturbed): significant shift, one‑sided p = 0.0089.
 - **Generalisation (held‑out LCS):** When trained on an 80% stratified split and evaluated on the held‑out 20% using the training‑set CCF target, TMO retains high LCS: PBMC 0.9885, mouse brain 0.9484, human brain 0.8483, mouse kidney 0.9369, confirming that the learned component‑lag ordering transfers to unseen cells of the same tissue.
 - - **Cell‑state ablation:** Removing cell‑state information from the LagMLP causes a consistent drop in LCS (e.g. 0.9984->0.7136 in mouse kidney) and collapses per‑component temporal dynamics (KS p < 10^-18 in three of four tissues), proving that TMO's dynamic lag patterns depend on cell‑state conditioning.

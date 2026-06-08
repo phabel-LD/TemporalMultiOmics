@@ -72,6 +72,10 @@ def main():
         max_corr_per_bin.append(max_corr)
     max_corr_per_bin = np.array(max_corr_per_bin)  # (n_bins, n_rna)
 
+    # Save the correlation matrix for downstream analysis
+    np.savetxt(str(output_dir / "atac_rna_correlation_heatmap.csv"), max_corr_per_bin, delimiter=",")
+    print(f"Correlation matrix saved to {output_dir / 'atac_rna_correlation_heatmap.csv'}")
+
     # ===== Load component annotations =====
     annot_file = output_dir / "component_annotation.csv"
     if annot_file.exists():

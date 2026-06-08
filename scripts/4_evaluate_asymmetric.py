@@ -104,6 +104,12 @@ def main():
     else:
         print("Dataset not reversed; Δτ signs kept as computed.")
 
+        # ---------------------------------------------------------
+    # Save the smoothed Δτ surface (50 components × 9 windows)
+    np.savetxt(str(output_dir / "delta_tau_smooth.csv"), delta_tau_smooth, delimiter=",")
+    print("Saved raw Δτ surface matrix to delta_tau_smooth.csv")
+    # ---------------------------------------------------------
+
     # Write reversal flag to a text file
     with open(output_dir / "pseudotime_reversed_flag.txt", "w") as f:
         f.write(str(adata.uns.get('pseudotime_reversed', False)))
