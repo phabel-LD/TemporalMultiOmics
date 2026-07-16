@@ -17,6 +17,7 @@ pseudotime was reversed (using an early marker gene).
 ================================================================================
 1. DIRECTORY STRUCTURE (actual)
 ================================================================================
+```text
 ProjectRoot/
 ├── tmo/                       # Core library
 │   ├── __init__.py
@@ -64,6 +65,7 @@ ProjectRoot/
 ├── setup.py
 ├── LICENSE
 └── README.md
+```
 
 ================================================================================
 2. REQUIRED INPUT FILES (per dataset)
